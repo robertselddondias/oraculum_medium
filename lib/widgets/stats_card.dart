@@ -74,7 +74,7 @@ class StatsCard extends StatelessWidget {
             Text(
               subtitle,
               style: const TextStyle(
-                color: Colors.white40,
+                color: Colors.white38,
                 fontSize: 11,
               ),
             ),

@@ -61,4 +61,34 @@ class AppointmentModel {
       'rating': rating,
     };
   }
+
+  AppointmentModel copyWith({
+    String? id,
+    String? userId,
+    String? mediumId,
+    DateTime? dateTime,
+    int? durationMinutes,
+    String? status,
+    String? paymentId,
+    double? amount,
+    DateTime? createdAt,
+    String? notes,
+    String? feedback,
+    double? rating,
+  }) {
+    return AppointmentModel(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      mediumId: mediumId ?? this.mediumId,
+      dateTime: dateTime ?? this.dateTime,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
+      status: status ?? this.status,
+      paymentId: paymentId ?? this.paymentId,
+      amount: amount ?? this.amount,
+      createdAt: createdAt ?? this.createdAt,
+      notes: notes ?? this.notes,
+      feedback: feedback ?? this.feedback,
+      rating: rating ?? this.rating,
+    );
+  }
 }

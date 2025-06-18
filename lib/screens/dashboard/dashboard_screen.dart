@@ -7,6 +7,7 @@ import 'package:oraculum_medium/controllers/auth_controller.dart';
 import 'package:oraculum_medium/controllers/dashboard_controller.dart';
 import 'package:oraculum_medium/widgets/appointment_card.dart';
 import 'package:oraculum_medium/widgets/stats_card.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -15,6 +16,9 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final DashboardController controller = Get.find<DashboardController>();
     final AuthController authController = Get.find<AuthController>();
+    final size = MediaQuery.of(context).size;
+    final isLargeScreen = size.width > 600;
+    final isTablet = size.width > 800;
 
     return Scaffold(
       body: Container(
@@ -31,25 +35,32 @@ class DashboardScreen extends StatelessWidget {
 
             return RefreshIndicator(
               onRefresh: controller.refreshDashboard,
+              color: AppTheme.primaryColor,
+              backgroundColor: AppTheme.surfaceColor,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(authController, controller),
-                    const SizedBox(height: 24),
-                    _buildStatusCard(controller),
-                    const SizedBox(height: 24),
-                    _buildQuickStats(controller),
-                    const SizedBox(height: 24),
-                    _buildTodaySection(controller),
-                    const SizedBox(height: 24),
-                    _buildPendingSection(controller),
-                    const SizedBox(height: 24),
-                    _buildUpcomingSection(controller),
-                    const SizedBox(height: 100),
-                  ],
+                padding: EdgeInsets.all(isTablet ? 24 : 16),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: isTablet ? 1200 : double.infinity,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(authController, controller, isLargeScreen),
+                      SizedBox(height: isLargeScreen ? 32 : 24),
+                      _buildStatusCard(controller, isLargeScreen),
+                      SizedBox(height: isLargeScreen ? 32 : 24),
+                      _buildQuickStats(controller, isLargeScreen, isTablet),
+                      SizedBox(height: isLargeScreen ? 32 : 24),
+                      _buildTodaySection(controller, isLargeScreen),
+                      SizedBox(height: isLargeScreen ? 32 : 24),
+                      _buildPendingSection(controller, isLargeScreen),
+                      SizedBox(height: isLargeScreen ? 32 : 24),
+                      _buildUpcomingSection(controller, isLargeScreen),
+                      const SizedBox(height: 100),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -61,11 +72,14 @@ class DashboardScreen extends StatelessWidget {
         onPressed: () => Get.toNamed(AppRoutes.scheduleManagement),
         backgroundColor: AppTheme.primaryColor,
         child: const Icon(Icons.schedule, color: Colors.white),
+      ).animate().scale(
+        delay: const Duration(milliseconds: 800),
+        duration: const Duration(milliseconds: 400),
       ),
     );
   }
 
-  Widget _buildHeader(AuthController authController, DashboardController controller) {
+  Widget _buildHeader(AuthController authController, DashboardController controller, bool isLargeScreen) {
     return Row(
       children: [
         Expanded(
@@ -74,21 +88,34 @@ class DashboardScreen extends StatelessWidget {
             children: [
               Text(
                 controller.getGreeting(),
-                style: const TextStyle(
-                  fontSize: 16,
+                style: TextStyle(
+                  fontSize: isLargeScreen ? 18 : 16,
                   color: Colors.white70,
                 ),
+              ).animate().fadeIn(
+                duration: const Duration(milliseconds: 500),
+              ).slideX(
+                begin: -0.2,
+                end: 0,
+                duration: const Duration(milliseconds: 400),
               ),
               const SizedBox(height: 4),
               Obx(() {
                 final user = authController.currentUser.value;
                 return Text(
                   user?.displayName ?? 'Médium',
-                  style: const TextStyle(
-                    fontSize: 24,
+                  style: TextStyle(
+                    fontSize: isLargeScreen ? 28 : 24,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
+                ).animate().fadeIn(
+                  delay: const Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 500),
+                ).slideX(
+                  begin: -0.2,
+                  end: 0,
+                  duration: const Duration(milliseconds: 400),
                 );
               }),
             ],
@@ -97,8 +124,8 @@ class DashboardScreen extends StatelessWidget {
         GestureDetector(
           onTap: () => Get.toNamed(AppRoutes.profile),
           child: Container(
-            width: 48,
-            height: 48,
+            width: isLargeScreen ? 56 : 48,
+            height: isLargeScreen ? 56 : 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white24, width: 2),
@@ -107,54 +134,253 @@ class DashboardScreen extends StatelessWidget {
                 fit: BoxFit.cover,
               ),
             ),
+          ).animate().scale(
+            delay: const Duration(milliseconds: 400),
+            duration: const Duration(milliseconds: 400),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildStatusCard(DashboardController controller) {
+  Widget _buildStatusCard(DashboardController controller, bool isLargeScreen) {
     return Container(
-        padding: const EdgeInsets.all(20),
-    decoration: AppTheme.cardDecoration,
-    child: Row(
-    children: [
-    Container(
-    width: 12,
-    height: 12,
-    decoration: BoxDecoration(
-    shape: BoxShape.circle,
-    color: controller.getStatusColor(),
-    ),
-    ),
-    const SizedBox(width: 12),
-    Expanded(
-    child: StatsCard(
-    title: 'Ganhos',
-    value: 'R\$ ${controller.totalTodayEarnings}',
-    subtitle: 'hoje',
-    icon: Icons.attach_money,
-    color: AppTheme.successColor,
-    ),
-    ),
-    ],
+      padding: EdgeInsets.all(isLargeScreen ? 24 : 20),
+      decoration: AppTheme.cardDecoration,
+      child: Row(
+        children: [
+          Container(
+            width: isLargeScreen ? 14 : 12,
+            height: isLargeScreen ? 14 : 12,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: controller.getStatusColor(),
+            ),
+          ).animate().scale(
+            delay: const Duration(milliseconds: 600),
+            duration: const Duration(milliseconds: 400),
+          ),
+          SizedBox(width: isLargeScreen ? 16 : 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Status: ${controller.getStatusText()}',
+                  style: TextStyle(
+                    fontSize: isLargeScreen ? 18 : 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                StatsCard(
+                  title: 'Ganhos',
+                  value: 'R\$ ${controller.totalTodayEarnings}',
+                  subtitle: 'hoje',
+                  icon: Icons.attach_money,
+                  color: AppTheme.successColor,
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          Switch(
+            value: controller.isOnline.value,
+            onChanged: (_) => controller.toggleOnlineStatus(),
+            activeColor: AppTheme.primaryColor,
+          ),
+        ],
+      ),
+    ).animate().fadeIn(
+      delay: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 500),
+    ).slideY(
+      begin: 0.1,
+      end: 0,
+      duration: const Duration(milliseconds: 400),
     );
   }
 
-  Widget _buildTodaySection(DashboardController controller) {
+  Widget _buildQuickStats(DashboardController controller, bool isLargeScreen, bool isTablet) {
+    final spacing = isLargeScreen ? 16.0 : 12.0;
+
+    if (isTablet) {
+      return Row(
+        children: [
+          Expanded(
+            child: StatsCard(
+              title: 'Hoje',
+              value: '${controller.todayCount}',
+              subtitle: 'consultas',
+              icon: Icons.today,
+              color: AppTheme.primaryColor,
+            ).animate().fadeIn(
+              delay: const Duration(milliseconds: 500),
+              duration: const Duration(milliseconds: 500),
+            ).slideY(
+              begin: 0.1,
+              end: 0,
+              duration: const Duration(milliseconds: 400),
+            ),
+          ),
+          SizedBox(width: spacing),
+          Expanded(
+            child: StatsCard(
+              title: 'Pendentes',
+              value: '${controller.pendingCount}',
+              subtitle: 'aguardando',
+              icon: Icons.pending_actions,
+              color: AppTheme.warningColor,
+            ).animate().fadeIn(
+              delay: const Duration(milliseconds: 600),
+              duration: const Duration(milliseconds: 500),
+            ).slideY(
+              begin: 0.1,
+              end: 0,
+              duration: const Duration(milliseconds: 400),
+            ),
+          ),
+          SizedBox(width: spacing),
+          Expanded(
+            child: StatsCard(
+              title: 'Mês',
+              value: '${controller.monthlyCount}',
+              subtitle: 'consultas',
+              icon: Icons.calendar_month,
+              color: AppTheme.successColor,
+            ).animate().fadeIn(
+              delay: const Duration(milliseconds: 700),
+              duration: const Duration(milliseconds: 500),
+            ).slideY(
+              begin: 0.1,
+              end: 0,
+              duration: const Duration(milliseconds: 400),
+            ),
+          ),
+          SizedBox(width: spacing),
+          Expanded(
+            child: StatsCard(
+              title: 'Rating',
+              value: '${controller.averageRating.toStringAsFixed(1)}',
+              subtitle: 'estrelas',
+              icon: Icons.star,
+              color: AppTheme.accentColor,
+            ).animate().fadeIn(
+              delay: const Duration(milliseconds: 800),
+              duration: const Duration(milliseconds: 500),
+            ).slideY(
+              begin: 0.1,
+              end: 0,
+              duration: const Duration(milliseconds: 400),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: StatsCard(
+                title: 'Hoje',
+                value: '${controller.todayCount}',
+                subtitle: 'consultas',
+                icon: Icons.today,
+                color: AppTheme.primaryColor,
+              ).animate().fadeIn(
+                delay: const Duration(milliseconds: 500),
+                duration: const Duration(milliseconds: 500),
+              ).slideY(
+                begin: 0.1,
+                end: 0,
+                duration: const Duration(milliseconds: 400),
+              ),
+            ),
+            SizedBox(width: spacing),
+            Expanded(
+              child: StatsCard(
+                title: 'Pendentes',
+                value: '${controller.pendingCount}',
+                subtitle: 'aguardando',
+                icon: Icons.pending_actions,
+                color: AppTheme.warningColor,
+              ).animate().fadeIn(
+                delay: const Duration(milliseconds: 600),
+                duration: const Duration(milliseconds: 500),
+              ).slideY(
+                begin: 0.1,
+                end: 0,
+                duration: const Duration(milliseconds: 400),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: spacing),
+        Row(
+          children: [
+            Expanded(
+              child: StatsCard(
+                title: 'Mês',
+                value: '${controller.monthlyCount}',
+                subtitle: 'consultas',
+                icon: Icons.calendar_month,
+                color: AppTheme.successColor,
+              ).animate().fadeIn(
+                delay: const Duration(milliseconds: 700),
+                duration: const Duration(milliseconds: 500),
+              ).slideY(
+                begin: 0.1,
+                end: 0,
+                duration: const Duration(milliseconds: 400),
+              ),
+            ),
+            SizedBox(width: spacing),
+            Expanded(
+              child: StatsCard(
+                title: 'Rating',
+                value: '${controller.averageRating.toStringAsFixed(1)}',
+                subtitle: 'estrelas',
+                icon: Icons.star,
+                color: AppTheme.accentColor,
+              ).animate().fadeIn(
+                delay: const Duration(milliseconds: 800),
+                duration: const Duration(milliseconds: 500),
+              ).slideY(
+                begin: 0.1,
+                end: 0,
+                duration: const Duration(milliseconds: 400),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTodaySection(DashboardController controller, bool isLargeScreen) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Consultas de Hoje',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: isLargeScreen ? 22 : 20,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
+            ).animate().fadeIn(
+              delay: const Duration(milliseconds: 900),
+              duration: const Duration(milliseconds: 500),
+            ).slideX(
+              begin: -0.1,
+              end: 0,
+              duration: const Duration(milliseconds: 400),
             ),
             TextButton(
               onPressed: () => Get.toNamed(AppRoutes.appointments),
@@ -162,59 +388,82 @@ class DashboardScreen extends StatelessWidget {
                 'Ver todas',
                 style: TextStyle(color: AppTheme.primaryColor),
               ),
+            ).animate().fadeIn(
+              delay: const Duration(milliseconds: 1000),
+              duration: const Duration(milliseconds: 500),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: isLargeScreen ? 16 : 12),
         Obx(() {
           if (controller.todayAppointments.isEmpty) {
             return Container(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(isLargeScreen ? 32 : 24),
               decoration: AppTheme.cardDecoration,
-              child: const Center(
+              child: Center(
                 child: Column(
                   children: [
                     Icon(
                       Icons.event_available,
-                      size: 48,
+                      size: isLargeScreen ? 56 : 48,
                       color: Colors.white30,
                     ),
-                    SizedBox(height: 12),
+                    SizedBox(height: isLargeScreen ? 16 : 12),
                     Text(
                       'Nenhuma consulta agendada para hoje',
                       style: TextStyle(
                         color: Colors.white60,
-                        fontSize: 16,
+                        fontSize: isLargeScreen ? 18 : 16,
                       ),
                       textAlign: TextAlign.center,
                     ),
                   ],
                 ),
               ),
+            ).animate().fadeIn(
+              delay: const Duration(milliseconds: 1100),
+              duration: const Duration(milliseconds: 500),
+            ).slideY(
+              begin: 0.1,
+              end: 0,
+              duration: const Duration(milliseconds: 400),
             );
           }
 
           return Column(
             children: controller.todayAppointments
                 .take(3)
-                .map((appointment) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: AppointmentCard(
-                appointment: appointment,
-                onConfirm: () => controller.confirmAppointment(appointment.id),
-                onCancel: () => _showCancelDialog(controller, appointment.id),
-                onComplete: () => controller.completeAppointment(appointment.id),
-                showActions: true,
-              ),
-            ))
-                .toList(),
+                .toList()
+                .asMap()
+                .entries
+                .map((entry) {
+              final index = entry.key;
+              final appointment = entry.value;
+              return Padding(
+                padding: EdgeInsets.only(bottom: isLargeScreen ? 16 : 12),
+                child: AppointmentCard(
+                  appointment: appointment,
+                  onConfirm: () => controller.confirmAppointment(appointment.id),
+                  onCancel: () => _showCancelDialog(controller, appointment.id),
+                  onComplete: () => controller.completeAppointment(appointment.id),
+                  showActions: true,
+                ).animate().fadeIn(
+                  delay: Duration(milliseconds: 1100 + (index * 100)),
+                  duration: const Duration(milliseconds: 500),
+                ).slideY(
+                  begin: 0.1,
+                  end: 0,
+                  duration: const Duration(milliseconds: 400),
+                ),
+              );
+            }).toList(),
           );
         }),
       ],
     );
   }
 
-  Widget _buildPendingSection(DashboardController controller) {
+  Widget _buildPendingSection(DashboardController controller, bool isLargeScreen) {
     return Obx(() {
       if (controller.pendingAppointments.isEmpty) {
         return const SizedBox.shrink();
@@ -223,34 +472,54 @@ class DashboardScreen extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Aguardando Confirmação',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: isLargeScreen ? 22 : 20,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
+          ).animate().fadeIn(
+            delay: const Duration(milliseconds: 1400),
+            duration: const Duration(milliseconds: 500),
+          ).slideX(
+            begin: -0.1,
+            end: 0,
+            duration: const Duration(milliseconds: 400),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: isLargeScreen ? 16 : 12),
           ...controller.pendingAppointments
               .take(2)
-              .map((appointment) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: AppointmentCard(
-              appointment: appointment,
-              onConfirm: () => controller.confirmAppointment(appointment.id),
-              onCancel: () => _showCancelDialog(controller, appointment.id),
-              showActions: true,
-              isPending: true,
-            ),
-          ))
-              .toList(),
+              .toList()
+              .asMap()
+              .entries
+              .map((entry) {
+            final index = entry.key;
+            final appointment = entry.value;
+            return Padding(
+              padding: EdgeInsets.only(bottom: isLargeScreen ? 16 : 12),
+              child: AppointmentCard(
+                appointment: appointment,
+                onConfirm: () => controller.confirmAppointment(appointment.id),
+                onCancel: () => _showCancelDialog(controller, appointment.id),
+                showActions: true,
+                isPending: true,
+              ).animate().fadeIn(
+                delay: Duration(milliseconds: 1500 + (index * 100)),
+                duration: const Duration(milliseconds: 500),
+              ).slideY(
+                begin: 0.1,
+                end: 0,
+                duration: const Duration(milliseconds: 400),
+              ),
+            );
+          }).toList(),
         ],
       );
     });
   }
 
-  Widget _buildUpcomingSection(DashboardController controller) {
+  Widget _buildUpcomingSection(DashboardController controller, bool isLargeScreen) {
     return Obx(() {
       if (controller.upcomingAppointments.isEmpty) {
         return const SizedBox.shrink();
@@ -259,26 +528,46 @@ class DashboardScreen extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Próximas Consultas',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: isLargeScreen ? 22 : 20,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
+          ).animate().fadeIn(
+            delay: const Duration(milliseconds: 1700),
+            duration: const Duration(milliseconds: 500),
+          ).slideX(
+            begin: -0.1,
+            end: 0,
+            duration: const Duration(milliseconds: 400),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: isLargeScreen ? 16 : 12),
           ...controller.upcomingAppointments
               .take(3)
-              .map((appointment) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: AppointmentCard(
-              appointment: appointment,
-              showActions: false,
-              isUpcoming: true,
-            ),
-          ))
-              .toList(),
+              .toList()
+              .asMap()
+              .entries
+              .map((entry) {
+            final index = entry.key;
+            final appointment = entry.value;
+            return Padding(
+              padding: EdgeInsets.only(bottom: isLargeScreen ? 16 : 12),
+              child: AppointmentCard(
+                appointment: appointment,
+                showActions: false,
+                isUpcoming: true,
+              ).animate().fadeIn(
+                delay: Duration(milliseconds: 1800 + (index * 100)),
+                duration: const Duration(milliseconds: 500),
+              ).slideY(
+                begin: 0.1,
+                end: 0,
+                duration: const Duration(milliseconds: 400),
+              ),
+            );
+          }).toList(),
         ],
       );
     });
@@ -375,6 +664,8 @@ class DashboardScreen extends StatelessWidget {
                   color: Colors.orange,
                   size: 32,
                 ),
+              ).animate().scale(
+                duration: const Duration(milliseconds: 400),
               ),
               const SizedBox(height: 16),
               const Text(
@@ -384,6 +675,9 @@ class DashboardScreen extends StatelessWidget {
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
+              ).animate().fadeIn(
+                delay: const Duration(milliseconds: 200),
+                duration: const Duration(milliseconds: 500),
               ),
               const SizedBox(height: 12),
               const Text(
@@ -393,6 +687,9 @@ class DashboardScreen extends StatelessWidget {
                   fontSize: 16,
                 ),
                 textAlign: TextAlign.center,
+              ).animate().fadeIn(
+                delay: const Duration(milliseconds: 400),
+                duration: const Duration(milliseconds: 500),
               ),
               const SizedBox(height: 24),
               Row(
@@ -400,7 +697,20 @@ class DashboardScreen extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Get.back(),
-                      child: const Text('Voltar'),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                      ),
+                      child: const Text(
+                        'Voltar',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ).animate().fadeIn(
+                      delay: const Duration(milliseconds: 600),
+                      duration: const Duration(milliseconds: 500),
+                    ).slideY(
+                      begin: 0.1,
+                      end: 0,
+                      duration: const Duration(milliseconds: 400),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -412,8 +722,16 @@ class DashboardScreen extends StatelessWidget {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.orange,
+                        foregroundColor: Colors.white,
                       ),
                       child: const Text('Cancelar'),
+                    ).animate().fadeIn(
+                      delay: const Duration(milliseconds: 700),
+                      duration: const Duration(milliseconds: 500),
+                    ).slideY(
+                      begin: 0.1,
+                      end: 0,
+                      duration: const Duration(milliseconds: 400),
                     ),
                   ),
                 ],
@@ -421,49 +739,13 @@ class DashboardScreen extends StatelessWidget {
             ],
           ),
         ),
+      ).animate().fadeIn(
+        duration: const Duration(milliseconds: 300),
+      ).scale(
+        begin: const Offset(0.8, 0.8),
+        end: const Offset(1.0, 1.0),
+        duration: const Duration(milliseconds: 400),
       ),
     );
   }
 }
-Text(
-'Status: ${controller.getStatusText()}',
-style: const TextStyle(
-fontSize: 16,
-fontWeight: FontWeight.w500,
-color: Colors.white,
-),
-),
-const Spacer(),
-Switch(
-value: controller.isOnline.value,
-onChanged: (_) => controller.toggleOnlineStatus(),
-activeColor: AppTheme.primaryColor,
-),
-],
-),
-);
-}
-
-Widget _buildQuickStats(DashboardController controller) {
-return Row(
-children: [
-Expanded(
-child: StatsCard(
-title: 'Hoje',
-value: '${controller.todayCount}',
-subtitle: 'consultas',
-icon: Icons.today,
-color: AppTheme.primaryColor,
-),
-),
-const SizedBox(width: 12),
-Expanded(
-child: StatsCard(
-title: 'Pendentes',
-value: '${controller.pendingCount}',
-subtitle: 'aguardando',
-icon: Icons.pending_actions,
-color: AppTheme.warningColor,
-),
-),
-const SizedBox(width: 12),
