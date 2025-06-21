@@ -415,21 +415,30 @@ class FirebaseService {
     });
   }
 
-  Future<void> markAllNotificationsAsRead(String userId) {
-    return _firestore.runTransaction((transaction) async {
-      final query = notificationsCollection
+  Future<void> markAllNotificationsAsRead(String userId) async {
+    try {
+      final unreadNotifications = await notificationsCollection
           .where('userId', isEqualTo: userId)
-          .where('isRead', isEqualTo: false);
+          .where('isRead', isEqualTo: false)
+          .get();
 
-      final querySnapshot = await transaction.get(query);
+      if (unreadNotifications.docs.isEmpty) return;
 
-      for (final doc in querySnapshot.docs) {
-        transaction.update(doc.reference, {
+      final batch = _firestore.batch();
+
+      for (final doc in unreadNotifications.docs) {
+        batch.update(doc.reference, {
           'isRead': true,
           'readAt': FieldValue.serverTimestamp(),
         });
       }
-    });
+
+      await batch.commit();
+      debugPrint('✅ ${unreadNotifications.docs.length} notificações marcadas como lidas');
+    } catch (e) {
+      debugPrint('❌ Erro ao marcar notificações como lidas: $e');
+      throw Exception('Erro ao marcar notificações como lidas');
+    }
   }
 
   Future<void> deleteNotification(String notificationId) {
@@ -454,7 +463,6 @@ class FirebaseService {
   Future<DocumentReference> sendMessage(String chatRoomId, Map<String, dynamic> messageData) {
     messageData['createdAt'] = FieldValue.serverTimestamp();
 
-    // Atualiza o chat room com a última mensagem
     chatRoomsCollection.doc(chatRoomId).update({
       'lastMessage': messageData['text'],
       'lastMessageAt': FieldValue.serverTimestamp(),
@@ -476,6 +484,20 @@ class FirebaseService {
   }
 
   // ========== MÉTODOS DE UPLOAD ==========
+
+  Future<String> uploadProfileImage(String userId, File imageFile) async {
+    try {
+      final path = 'profile_images/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final ref = _storage.ref().child(path);
+      final uploadTask = ref.putFile(imageFile);
+      final snapshot = await uploadTask.whenComplete(() {});
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      debugPrint('Erro ao fazer upload da imagem: $e');
+      throw Exception('Erro ao fazer upload da imagem: $e');
+    }
+  }
 
   Future<String> uploadImage(File imageFile, String path) async {
     try {
@@ -507,28 +529,24 @@ class FirebaseService {
       final startOfMonth = DateTime(now.year, now.month, 1);
       final startOfYear = DateTime(now.year, 1, 1);
 
-      // Consultas do mês
       final monthlyAppointments = await getMediumAppointmentsInPeriod(
         mediumId,
         startOfMonth,
         now,
       );
 
-      // Consultas do ano
       final yearlyAppointments = await getMediumAppointmentsInPeriod(
         mediumId,
         startOfYear,
         now,
       );
 
-      // Ganhos do mês
       final monthlyEarnings = await getMediumEarningsInPeriod(
         mediumId,
         startOfMonth,
         now,
       );
 
-      // Avaliações
       final reviews = await getMediumReviews(mediumId);
 
       double totalMonthlyEarnings = 0;
@@ -595,8 +613,8 @@ class FirebaseService {
 
   // ========== MÉTODOS DE TRANSAÇÃO ==========
 
-  Future<T> runTransaction<T>(Function(Transaction) updateFunction) {
-    return _firestore.runTransaction<T>(updateFunction);
+  Future<T> runTransaction<T>(Future<T> Function(Transaction) updateFunction) async {
+    return await _firestore.runTransaction<T>(updateFunction);
   }
 
   Future<void> batch(Function(WriteBatch) operations) async {
@@ -662,6 +680,411 @@ class FirebaseService {
     if (canceledAppointments.docs.isNotEmpty) {
       await batch.commit();
       debugPrint('Limpou ${canceledAppointments.docs.length} agendamentos cancelados antigos');
+    }
+  }
+
+  // ========== MÉTODOS DE ESTATÍSTICAS E REPORTS ==========
+
+  Future<Map<String, dynamic>> getDashboardStats(String mediumId) async {
+    try {
+      final now = DateTime.now();
+      final startOfMonth = DateTime(now.year, now.month, 1);
+      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+      final startOfToday = DateTime(now.year, now.month, now.day);
+
+      final results = await Future.wait([
+        getMediumAppointments(mediumId),
+        getMediumEarnings(mediumId),
+        getMediumReviews(mediumId),
+        getTodayAppointments(mediumId),
+      ]);
+
+      final allAppointments = results[0] as QuerySnapshot;
+      final allEarnings = results[1] as QuerySnapshot;
+      final allReviews = results[2] as QuerySnapshot;
+      final todayAppointments = results[3] as QuerySnapshot;
+
+      int monthlyAppointments = 0;
+      int weeklyAppointments = 0;
+      int completedAppointments = 0;
+      int pendingAppointments = 0;
+
+      for (final doc in allAppointments.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final dateTime = (data['dateTime'] as Timestamp).toDate();
+        final status = data['status'] as String;
+
+        if (dateTime.isAfter(startOfMonth)) monthlyAppointments++;
+        if (dateTime.isAfter(startOfWeek)) weeklyAppointments++;
+        if (status == 'completed') completedAppointments++;
+        if (status == 'pending') pendingAppointments++;
+      }
+
+      double totalEarnings = 0;
+      double monthlyEarnings = 0;
+      double weeklyEarnings = 0;
+
+      for (final doc in allEarnings.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final amount = (data['amount'] ?? 0.0).toDouble();
+        final date = (data['date'] as Timestamp).toDate();
+
+        totalEarnings += amount;
+        if (date.isAfter(startOfMonth)) monthlyEarnings += amount;
+        if (date.isAfter(startOfWeek)) weeklyEarnings += amount;
+      }
+
+      double averageRating = 0;
+      if (allReviews.docs.isNotEmpty) {
+        double totalRating = 0;
+        for (final doc in allReviews.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          totalRating += (data['rating'] ?? 0.0).toDouble();
+        }
+        averageRating = totalRating / allReviews.docs.length;
+      }
+
+      return {
+        'totalAppointments': allAppointments.docs.length,
+        'monthlyAppointments': monthlyAppointments,
+        'weeklyAppointments': weeklyAppointments,
+        'completedAppointments': completedAppointments,
+        'pendingAppointments': pendingAppointments,
+        'todayAppointments': todayAppointments.docs.length,
+        'totalEarnings': totalEarnings,
+        'monthlyEarnings': monthlyEarnings,
+        'weeklyEarnings': weeklyEarnings,
+        'averageRating': averageRating,
+        'totalReviews': allReviews.docs.length,
+        'completionRate': allAppointments.docs.isEmpty ? 0.0 : (completedAppointments / allAppointments.docs.length) * 100,
+      };
+    } catch (e) {
+      debugPrint('Erro ao buscar estatísticas do dashboard: $e');
+      return {};
+    }
+  }
+
+  // ========== MÉTODOS DE BACKUP E SYNC ==========
+
+  Future<void> backupMediumData(String mediumId) async {
+    try {
+      final backupData = {
+        'mediumProfile': await getMediumData(mediumId),
+        'settings': await getMediumSettings(mediumId),
+        'availability': await getMediumAvailability(mediumId),
+        'appointments': await getMediumAppointments(mediumId),
+        'earnings': await getMediumEarnings(mediumId),
+        'reviews': await getMediumReviews(mediumId),
+        'backupDate': FieldValue.serverTimestamp(),
+      };
+
+      await _firestore.collection('backups').doc(mediumId).set(backupData);
+      debugPrint('✅ Backup realizado para médium: $mediumId');
+    } catch (e) {
+      debugPrint('❌ Erro ao fazer backup: $e');
+      throw Exception('Erro ao fazer backup dos dados');
+    }
+  }
+
+  Future<Map<String, dynamic>?> restoreMediumData(String mediumId) async {
+    try {
+      final backupDoc = await _firestore.collection('backups').doc(mediumId).get();
+
+      if (backupDoc.exists) {
+        debugPrint('✅ Backup encontrado para médium: $mediumId');
+        return backupDoc.data() as Map<String, dynamic>;
+      } else {
+        debugPrint('⚠️ Nenhum backup encontrado para médium: $mediumId');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('❌ Erro ao restaurar backup: $e');
+      return null;
+    }
+  }
+
+  // ========== MÉTODOS DE VALIDAÇÃO E SEGURANÇA ==========
+
+  Future<bool> validateMediumAccess(String mediumId, String userId) async {
+    try {
+      final mediumDoc = await getMediumData(mediumId);
+
+      if (!mediumDoc.exists) return false;
+
+      final mediumData = mediumDoc.data() as Map<String, dynamic>;
+      return mediumData['userId'] == userId || mediumId == userId;
+    } catch (e) {
+      debugPrint('❌ Erro ao validar acesso: $e');
+      return false;
+    }
+  }
+
+  Future<bool> checkAppointmentConflict(String mediumId, DateTime dateTime, int durationMinutes) async {
+    try {
+      final startTime = dateTime.subtract(const Duration(minutes: 15));
+      final endTime = dateTime.add(Duration(minutes: durationMinutes + 15));
+
+      final conflictingAppointments = await appointmentsCollection
+          .where('mediumId', isEqualTo: mediumId)
+          .where('dateTime', isGreaterThanOrEqualTo: Timestamp.fromDate(startTime))
+          .where('dateTime', isLessThanOrEqualTo: Timestamp.fromDate(endTime))
+          .where('status', whereIn: ['pending', 'confirmed'])
+          .get();
+
+      return conflictingAppointments.docs.isNotEmpty;
+    } catch (e) {
+      debugPrint('❌ Erro ao verificar conflitos: $e');
+      return true;
+    }
+  }
+
+  Future<bool> validateBusinessHours(String mediumId, DateTime dateTime) async {
+    try {
+      final availabilityDoc = await getMediumAvailability(mediumId);
+
+      if (!availabilityDoc.exists) return false;
+
+      final availabilityData = availabilityDoc.data() as Map<String, dynamic>;
+      final dayOfWeek = _getDayOfWeek(dateTime.weekday);
+      final dayData = availabilityData[dayOfWeek] as Map<String, dynamic>?;
+
+      if (dayData == null || dayData['isAvailable'] != true) return false;
+
+      final startTime = _parseTime(dayData['startTime'] as String);
+      final endTime = _parseTime(dayData['endTime'] as String);
+      final appointmentTime = TimeOfDay.fromDateTime(dateTime);
+
+      return _isTimeInRange(appointmentTime, startTime, endTime);
+    } catch (e) {
+      debugPrint('❌ Erro ao validar horário comercial: $e');
+      return false;
+    }
+  }
+
+  // ========== MÉTODOS AUXILIARES ==========
+
+  String _getDayOfWeek(int weekday) {
+    const days = [
+      'monday', 'tuesday', 'wednesday', 'thursday',
+      'friday', 'saturday', 'sunday'
+    ];
+    return days[weekday - 1];
+  }
+
+  TimeOfDay _parseTime(String timeString) {
+    final parts = timeString.split(':');
+    return TimeOfDay(
+      hour: int.parse(parts[0]),
+      minute: int.parse(parts[1]),
+    );
+  }
+
+  bool _isTimeInRange(TimeOfDay time, TimeOfDay start, TimeOfDay end) {
+    final timeMinutes = time.hour * 60 + time.minute;
+    final startMinutes = start.hour * 60 + start.minute;
+    final endMinutes = end.hour * 60 + end.minute;
+
+    return timeMinutes >= startMinutes && timeMinutes <= endMinutes;
+  }
+
+  // ========== MÉTODOS DE RELATÓRIOS ==========
+
+  Future<Map<String, dynamic>> generateMonthlyReport(String mediumId, int year, int month) async {
+    try {
+      final startDate = DateTime(year, month, 1);
+      final endDate = DateTime(year, month + 1, 0, 23, 59, 59);
+
+      final appointments = await getMediumAppointmentsInPeriod(mediumId, startDate, endDate);
+      final earnings = await getMediumEarningsInPeriod(mediumId, startDate, endDate);
+
+      int totalAppointments = appointments.docs.length;
+      int completedAppointments = 0;
+      int canceledAppointments = 0;
+      double totalEarnings = 0;
+      Map<String, int> appointmentsByDay = {};
+      Map<String, double> earningsByDay = {};
+
+      for (final doc in appointments.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final status = data['status'] as String;
+        final dateTime = (data['dateTime'] as Timestamp).toDate();
+        final dayKey = '${dateTime.day.toString().padLeft(2, '0')}';
+
+        appointmentsByDay[dayKey] = (appointmentsByDay[dayKey] ?? 0) + 1;
+
+        if (status == 'completed') completedAppointments++;
+        if (status == 'canceled') canceledAppointments++;
+      }
+
+      for (final doc in earnings.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final amount = (data['amount'] ?? 0.0).toDouble();
+        final date = (data['date'] as Timestamp).toDate();
+        final dayKey = '${date.day.toString().padLeft(2, '0')}';
+
+        totalEarnings += amount;
+        earningsByDay[dayKey] = (earningsByDay[dayKey] ?? 0) + amount;
+      }
+
+      return {
+        'period': '$month/$year',
+        'totalAppointments': totalAppointments,
+        'completedAppointments': completedAppointments,
+        'canceledAppointments': canceledAppointments,
+        'completionRate': totalAppointments > 0 ? (completedAppointments / totalAppointments) * 100 : 0,
+        'totalEarnings': totalEarnings,
+        'averageEarningsPerAppointment': completedAppointments > 0 ? totalEarnings / completedAppointments : 0,
+        'appointmentsByDay': appointmentsByDay,
+        'earningsByDay': earningsByDay,
+        'generatedAt': DateTime.now(),
+      };
+    } catch (e) {
+      debugPrint('❌ Erro ao gerar relatório mensal: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> generatePerformanceReport(String mediumId) async {
+    try {
+      final now = DateTime.now();
+      final last30Days = now.subtract(const Duration(days: 30));
+      final last7Days = now.subtract(const Duration(days: 7));
+
+      final stats = await getDashboardStats(mediumId);
+      final recent30DaysAppointments = await getMediumAppointmentsInPeriod(mediumId, last30Days, now);
+      final recent7DaysAppointments = await getMediumAppointmentsInPeriod(mediumId, last7Days, now);
+
+      int responsiveAppointments = 0;
+      int totalResponseTime = 0;
+
+      for (final doc in recent30DaysAppointments.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final createdAt = (data['createdAt'] as Timestamp).toDate();
+        final updatedAt = (data['updatedAt'] as Timestamp).toDate();
+        final status = data['status'] as String;
+
+        if (status == 'confirmed' || status == 'canceled') {
+          responsiveAppointments++;
+          totalResponseTime += updatedAt.difference(createdAt).inHours;
+        }
+      }
+
+      final averageResponseTime = responsiveAppointments > 0 ? totalResponseTime / responsiveAppointments : 0;
+
+      return {
+        'performancePeriod': '30 dias',
+        'totalAppointments': stats['totalAppointments'] ?? 0,
+        'completionRate': stats['completionRate'] ?? 0,
+        'averageRating': stats['averageRating'] ?? 0,
+        'totalEarnings': stats['totalEarnings'] ?? 0,
+        'last30DaysAppointments': recent30DaysAppointments.docs.length,
+        'last7DaysAppointments': recent7DaysAppointments.docs.length,
+        'averageResponseTimeHours': averageResponseTime,
+        'recommendations': _generateRecommendations(stats),
+        'generatedAt': DateTime.now(),
+      };
+    } catch (e) {
+      debugPrint('❌ Erro ao gerar relatório de performance: $e');
+      return {};
+    }
+  }
+
+  List<String> _generateRecommendations(Map<String, dynamic> stats) {
+    final recommendations = <String>[];
+    final completionRate = stats['completionRate'] ?? 0;
+    final averageRating = stats['averageRating'] ?? 0;
+    final totalAppointments = stats['totalAppointments'] ?? 0;
+
+    if (completionRate < 80) {
+      recommendations.add('Considere melhorar sua taxa de conclusão de consultas');
+    }
+
+    if (averageRating < 4.0) {
+      recommendations.add('Foque em melhorar a qualidade do atendimento para aumentar sua avaliação');
+    }
+
+    if (totalAppointments < 10) {
+      recommendations.add('Considere expandir sua disponibilidade para atrair mais clientes');
+    }
+
+    if (recommendations.isEmpty) {
+      recommendations.add('Parabéns! Sua performance está excelente');
+    }
+
+    return recommendations;
+  }
+
+  // ========== MÉTODO DE SINCRONIZAÇÃO ==========
+
+  Future<void> syncOfflineData(List<Map<String, dynamic>> offlineData) async {
+    try {
+      final batch = _firestore.batch();
+
+      for (final data in offlineData) {
+        final collection = data['collection'] as String;
+        final docId = data['docId'] as String?;
+        final docData = data['data'] as Map<String, dynamic>;
+        final operation = data['operation'] as String; // 'create', 'update', 'delete'
+
+        DocumentReference docRef;
+        if (docId != null) {
+          docRef = _firestore.collection(collection).doc(docId);
+        } else {
+          docRef = _firestore.collection(collection).doc();
+        }
+
+        switch (operation) {
+          case 'create':
+            batch.set(docRef, docData);
+            break;
+          case 'update':
+            batch.update(docRef, docData);
+            break;
+          case 'delete':
+            batch.delete(docRef);
+            break;
+        }
+      }
+
+      await batch.commit();
+      debugPrint('✅ Sincronização offline concluída: ${offlineData.length} operações');
+    } catch (e) {
+      debugPrint('❌ Erro na sincronização offline: $e');
+      throw Exception('Erro ao sincronizar dados offline');
+    }
+  }
+
+  // ========== MÉTODOS DE HEALTH CHECK ==========
+
+  Future<bool> checkFirebaseHealth() async {
+    try {
+      await _firestore.collection('health_check').limit(1).get();
+      return true;
+    } catch (e) {
+      debugPrint('❌ Firebase Health Check falhou: $e');
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>> getSystemStatus() async {
+    try {
+      final isFirebaseHealthy = await checkFirebaseHealth();
+      final currentUser = _auth.currentUser;
+
+      return {
+        'firebaseHealthy': isFirebaseHealthy,
+        'userAuthenticated': currentUser != null,
+        'userId': currentUser?.uid,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+    } catch (e) {
+      debugPrint('❌ Erro ao verificar status do sistema: $e');
+      return {
+        'firebaseHealthy': false,
+        'userAuthenticated': false,
+        'error': e.toString(),
+        'timestamp': DateTime.now().toIso8601String(),
+      };
     }
   }
 }

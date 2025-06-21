@@ -19,6 +19,8 @@ class DashboardController extends GetxController {
   final RxList<AppointmentModel> pendingAppointments = <AppointmentModel>[].obs;
 
   final RxBool isOnline = false.obs;
+  final RxDouble averageRating = 0.0.obs;
+  final RxInt monthlyCount = 0.obs;
 
   String? get currentMediumId => _authController.currentUser.value?.uid;
 
@@ -58,6 +60,8 @@ class DashboardController extends GetxController {
       debugPrint('=== loadStats() ===');
       final mediumStats = await _mediumService.getMediumStats(currentMediumId!);
       stats.value = mediumStats;
+      averageRating.value = mediumStats.averageRating;
+      monthlyCount.value = mediumStats.monthlyAppointments;
       debugPrint('✅ Estatísticas carregadas');
     } catch (e) {
       debugPrint('❌ Erro ao carregar estatísticas: $e');

@@ -3,6 +3,11 @@ import 'package:oraculum_medium/controllers/auth_controller.dart';
 import 'package:oraculum_medium/controllers/dashboard_controller.dart';
 import 'package:oraculum_medium/controllers/medium_admin_controller.dart';
 import 'package:oraculum_medium/controllers/appointment_admin_controller.dart';
+import 'package:oraculum_medium/controllers/earnings_controller.dart';
+import 'package:oraculum_medium/controllers/settings_controller.dart';
+import 'package:oraculum_medium/controllers/profile_controller.dart';
+import 'package:oraculum_medium/controllers/schedule_controller.dart';
+import 'package:oraculum_medium/controllers/notifications_controller.dart';
 import 'package:oraculum_medium/screens/auth/medium_login_screen.dart';
 import 'package:oraculum_medium/screens/auth/medium_register_screen.dart';
 import 'package:oraculum_medium/screens/auth/forgot_password_screen.dart';
@@ -33,6 +38,7 @@ class AppRoutes {
   static const String earningsHistory = '/earnings-history';
   static const String settings = '/settings';
   static const String availabilitySettings = '/availability-settings';
+  static const String analytics = '/analytics';
 
   static final routes = [
     GetPage(
@@ -57,6 +63,7 @@ class AppRoutes {
       binding: BindingsBuilder(() {
         Get.lazyPut<DashboardController>(() => DashboardController());
         Get.lazyPut<AppointmentAdminController>(() => AppointmentAdminController());
+        Get.lazyPut<MediumAdminController>(() => MediumAdminController());
       }),
     ),
     GetPage(
@@ -64,6 +71,7 @@ class AppRoutes {
       page: () => const MediumProfileScreen(),
       binding: BindingsBuilder(() {
         Get.lazyPut<MediumAdminController>(() => MediumAdminController());
+        Get.lazyPut<ProfileController>(() => ProfileController());
       }),
     ),
     GetPage(
@@ -71,6 +79,7 @@ class AppRoutes {
       page: () => const ProfileEditScreen(),
       binding: BindingsBuilder(() {
         Get.lazyPut<MediumAdminController>(() => MediumAdminController());
+        Get.lazyPut<ProfileController>(() => ProfileController());
       }),
     ),
     GetPage(
@@ -92,6 +101,7 @@ class AppRoutes {
       page: () => const ScheduleManagementScreen(),
       binding: BindingsBuilder(() {
         Get.lazyPut<MediumAdminController>(() => MediumAdminController());
+        Get.lazyPut<ScheduleController>(() => ScheduleController());
       }),
     ),
     GetPage(
@@ -99,6 +109,7 @@ class AppRoutes {
       page: () => const EarningsScreen(),
       binding: BindingsBuilder(() {
         Get.lazyPut<DashboardController>(() => DashboardController());
+        Get.lazyPut<EarningsController>(() => EarningsController());
       }),
     ),
     GetPage(
@@ -106,6 +117,7 @@ class AppRoutes {
       page: () => const EarningsHistoryScreen(),
       binding: BindingsBuilder(() {
         Get.lazyPut<DashboardController>(() => DashboardController());
+        Get.lazyPut<EarningsController>(() => EarningsController());
       }),
     ),
     GetPage(
@@ -113,6 +125,7 @@ class AppRoutes {
       page: () => const SettingsScreen(),
       binding: BindingsBuilder(() {
         Get.lazyPut<MediumAdminController>(() => MediumAdminController());
+        Get.lazyPut<SettingsController>(() => SettingsController());
       }),
     ),
     GetPage(
@@ -120,6 +133,14 @@ class AppRoutes {
       page: () => const AvailabilitySettingsScreen(),
       binding: BindingsBuilder(() {
         Get.lazyPut<MediumAdminController>(() => MediumAdminController());
+        Get.lazyPut<ScheduleController>(() => ScheduleController());
+      }),
+    ),
+    GetPage(
+      name: analytics,
+      page: () => const DashboardScreen(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut<DashboardController>(() => DashboardController());
       }),
     ),
   ];
