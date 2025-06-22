@@ -21,6 +21,9 @@ class AppointmentModel {
   final String? cancelReason;
   final DateTime? canceledAt;
   final DateTime? completedAt;
+  final String? type;
+  final String? paymentStatus;
+  final String? paymentMethod;
 
   AppointmentModel({
     required this.id,
@@ -43,6 +46,9 @@ class AppointmentModel {
     this.cancelReason,
     this.canceledAt,
     this.completedAt,
+    this.type,
+    this.paymentStatus,
+    this.paymentMethod,
   });
 
   factory AppointmentModel.fromMap(Map<String, dynamic> map, String id) {
@@ -67,6 +73,9 @@ class AppointmentModel {
       cancelReason: map['cancelReason'],
       canceledAt: map['canceledAt'] != null ? (map['canceledAt'] as Timestamp).toDate() : null,
       completedAt: map['completedAt'] != null ? (map['completedAt'] as Timestamp).toDate() : null,
+      type: map['type'],
+      paymentStatus: map['paymentStatus'],
+      paymentMethod: map['paymentMethod'],
     );
   }
 
@@ -91,6 +100,9 @@ class AppointmentModel {
       'cancelReason': cancelReason,
       'canceledAt': canceledAt != null ? Timestamp.fromDate(canceledAt!) : null,
       'completedAt': completedAt != null ? Timestamp.fromDate(completedAt!) : null,
+      'type': type,
+      'paymentStatus': paymentStatus,
+      'paymentMethod': paymentMethod,
     };
   }
 
@@ -115,6 +127,9 @@ class AppointmentModel {
     String? cancelReason,
     DateTime? canceledAt,
     DateTime? completedAt,
+    String? type,
+    String? paymentStatus,
+    String? paymentMethod,
   }) {
     return AppointmentModel(
       id: id ?? this.id,
@@ -137,8 +152,13 @@ class AppointmentModel {
       cancelReason: cancelReason ?? this.cancelReason,
       canceledAt: canceledAt ?? this.canceledAt,
       completedAt: completedAt ?? this.completedAt,
+      type: type ?? this.type,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
     );
   }
+
+  int get duration => durationMinutes;
 
   String get statusText {
     switch (status) {

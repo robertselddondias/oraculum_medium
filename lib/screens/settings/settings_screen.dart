@@ -195,7 +195,7 @@ class SettingsScreen extends StatelessWidget {
           _buildSwitchTile(
             'Aceitar automaticamente',
             'Aceitar agendamentos automaticamente',
-            controller.autoAcceptAppointments,
+            controller.autoAcceptAppointments.value,
                 (value) => controller.updateAutoAcceptAppointments(value),
             isLargeScreen,
           ),

@@ -137,8 +137,6 @@ class AuthController extends GetxController {
           .createUserWithEmailAndPassword(email: email, password: password);
 
       if (userCredential.user != null) {
-        await userCredential.user!.updateDisplayName(name);
-
         final mediumData = {
           'name': name,
           'email': email,

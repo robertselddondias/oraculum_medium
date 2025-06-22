@@ -203,6 +203,8 @@ class MediumProfileScreen extends StatelessWidget {
             children: medium.specialties.asMap().entries.map<Widget>((entry) {
               final index = entry.key;
               final specialty = entry.value;
+              final delayMilliseconds = 1200 + (index * 100);
+
               return Container(
                 padding: EdgeInsets.symmetric(
                   horizontal: isLargeScreen ? 16 : 12,
@@ -224,7 +226,7 @@ class MediumProfileScreen extends StatelessWidget {
                   ),
                 ),
               ).animate().fadeIn(
-                delay: Duration(milliseconds: 1200 + ((index ?? 0) * 100)),
+                delay: Duration(milliseconds: delayMilliseconds.toInt()),
                 duration: const Duration(milliseconds: 500),
               ).scale(
                 begin: const Offset(0.8, 0.8),

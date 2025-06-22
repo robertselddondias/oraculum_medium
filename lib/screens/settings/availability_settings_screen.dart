@@ -304,7 +304,7 @@ class _AvailabilitySettingsScreenState extends State<AvailabilitySettingsScreen>
           _buildSwitchSetting(
             'Aceitar automaticamente',
             'Confirmar agendamentos automaticamente',
-            _controller.autoAcceptAppointments,
+            _controller.autoAcceptAppointments.value,
                 (value) => _controller.updateAutoAcceptAppointments(value),
           ),
           const SizedBox(height: 16),
