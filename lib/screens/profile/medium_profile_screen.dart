@@ -224,12 +224,12 @@ class MediumProfileScreen extends StatelessWidget {
                   ),
                 ),
               ).animate().fadeIn(
-                delay: Duration(milliseconds: 1200 + (index * 100)),
+                delay: Duration(milliseconds: 1200 + ((index ?? 0) * 100)),
                 duration: const Duration(milliseconds: 500),
               ).scale(
                 begin: const Offset(0.8, 0.8),
                 end: const Offset(1.0, 1.0),
-                duration: const Duration(milliseconds: 400),
+                duration: const Duration(milliseconds: 300),
               );
             }).toList(),
           ),
