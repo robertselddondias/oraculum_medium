@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:oraculum_medium/models/availability_settings_model.dart';
 import 'package:oraculum_medium/models/medium_model.dart';
 import 'package:oraculum_medium/services/firebase_service.dart';
 import 'package:oraculum_medium/services/medium_service.dart';
@@ -22,6 +23,8 @@ class MediumAdminController extends GetxController {
   final minAdvanceBooking = 2.obs;
   final maxAdvanceBooking = 30.obs;
   final allowSameDayBooking = true.obs;
+
+  final availabilitySettings = Rxn<AvailabilitySettingsModel>();
 
   final notificationSettings = <String, bool>{
     'newAppointments': true,
@@ -570,6 +573,165 @@ class MediumAdminController extends GetxController {
         currentStatus.value == 'online' &&
         mediumProfile.value?.isActive == true;
   }
+
+  AvailabilitySettingsModel getCurrentSettings() {
+    return AvailabilitySettingsModel(
+      autoAcceptAppointments: autoAcceptAppointments.value,
+      bufferTime: bufferTime.value,
+      maxDailyAppointments: maxDailyAppointments.value,
+      consultationDurations: consultationDurations.value,
+      availability: availability.value,
+      isAvailable: isAvailable.value,
+      notificationSettings: notificationSettings.value,
+      minimumSessionPrice: minimumSessionPrice.value,
+      acceptsCredits: acceptsCredits.value,
+      acceptsCards: acceptsCards.value,
+      acceptsPix: acceptsPix.value,
+      minAdvanceBooking: minAdvanceBooking.value,
+      maxAdvanceBooking: maxAdvanceBooking.value,
+      allowSameDayBooking: allowSameDayBooking.value,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  void updateFromSettings(AvailabilitySettingsModel settings) {
+    autoAcceptAppointments.value = settings.autoAcceptAppointments;
+    bufferTime.value = settings.bufferTime;
+    maxDailyAppointments.value = settings.maxDailyAppointments;
+    consultationDurations.value = settings.consultationDurations;
+    availability.value = settings.availability;
+    isAvailable.value = settings.isAvailable;
+    notificationSettings.value = settings.notificationSettings;
+    minimumSessionPrice.value = settings.minimumSessionPrice;
+    acceptsCredits.value = settings.acceptsCredits;
+    acceptsCards.value = settings.acceptsCards;
+    acceptsPix.value = settings.acceptsPix;
+    minAdvanceBooking.value = settings.minAdvanceBooking;
+    maxAdvanceBooking.value = settings.maxAdvanceBooking;
+    allowSameDayBooking.value = settings.allowSameDayBooking;
+
+    availabilitySettings.value = settings;
+  }
+
+  Future<bool> saveAvailabilitySettings() async {
+    try {
+      isSaving.value = true;
+
+      final settings = getCurrentSettings();
+
+      if (!settings.validate()) {
+        Get.snackbar('Erro', 'Configurações inválidas. Verifique os dados inseridos.');
+        return false;
+      }
+
+      await _mediumService.updateMediumAvailability(currentMediumId, settings.toMap());
+      await _mediumService.updateMediumSettings(currentMediumId, settings.toMap());
+      await _firebaseService.updateMediumData(currentMediumId, {
+        'isAvailable': settings.isAvailable,
+      });
+
+      availabilitySettings.value = settings;
+
+      debugPrint('✅ Configurações de disponibilidade salvas');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Erro ao salvar configurações: $e');
+      return false;
+    } finally {
+      isSaving.value = false;
+    }
+  }
+
+  Future<void> loadAvailabilitySettings() async {
+    try {
+      isLoading.value = true;
+
+      final availabilityData = await _mediumService.getMediumAvailability(currentMediumId);
+      final settingsData = await _mediumService.getMediumSettings(currentMediumId);
+
+      final combinedData = {...availabilityData, ...settingsData};
+      final settings = AvailabilitySettingsModel.fromMap(combinedData);
+
+      updateFromSettings(settings);
+
+      debugPrint('✅ Configurações de disponibilidade carregadas');
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar configurações: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<bool> updateMediumAvailabilityStatus(bool newStatus) async {
+    try {
+      isAvailable.value = newStatus;
+
+      await _firebaseService.updateMediumData(currentMediumId, {
+        'isAvailable': newStatus,
+        'lastSeen': DateTime.now().toIso8601String(),
+      });
+
+      if (mediumProfile.value != null) {
+        final updatedData = mediumProfile.value!.toMap();
+        updatedData['isAvailable'] = newStatus;
+        mediumProfile.value = MediumModel.fromMap(updatedData, currentMediumId);
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('❌ Erro ao atualizar status: $e');
+      isAvailable.value = !newStatus;
+      return false;
+    }
+  }
+
+  void resetToDefaults() {
+    consultationDurations.value = [15, 30, 45, 60];
+    bufferTime.value = 15;
+    maxDailyAppointments.value = 10;
+    autoAcceptAppointments.value = false;
+
+    availability.value = {
+      'monday': {'isAvailable': true, 'startTime': '09:00', 'endTime': '18:00', 'breaks': []},
+      'tuesday': {'isAvailable': true, 'startTime': '09:00', 'endTime': '18:00', 'breaks': []},
+      'wednesday': {'isAvailable': true, 'startTime': '09:00', 'endTime': '18:00', 'breaks': []},
+      'thursday': {'isAvailable': true, 'startTime': '09:00', 'endTime': '18:00', 'breaks': []},
+      'friday': {'isAvailable': true, 'startTime': '09:00', 'endTime': '18:00', 'breaks': []},
+      'saturday': {'isAvailable': false, 'startTime': '09:00', 'endTime': '17:00', 'breaks': []},
+      'sunday': {'isAvailable': false, 'startTime': '10:00', 'endTime': '16:00', 'breaks': []},
+      'blockedDates': <DateTime>[],
+    };
+
+    notificationSettings.value = {
+      'newAppointments': true,
+      'appointmentReminders': true,
+      'paymentNotifications': true,
+      'reviewNotifications': true,
+      'promotionalEmails': false,
+      'systemUpdates': true,
+      'maintenanceAlerts': true,
+    };
+  }
+
+  bool validateSettings() {
+    if (consultationDurations.isEmpty) {
+      Get.snackbar('Erro', 'Selecione pelo menos uma duração de consulta');
+      return false;
+    }
+
+    if (bufferTime.value < 5 || bufferTime.value > 60) {
+      Get.snackbar('Erro', 'Tempo entre consultas deve estar entre 5 e 60 minutos');
+      return false;
+    }
+
+    if (maxDailyAppointments.value < 1 || maxDailyAppointments.value > 20) {
+      Get.snackbar('Erro', 'Número máximo de consultas deve estar entre 1 e 20');
+      return false;
+    }
+
+    return true;
+  }
+
 
   @override
   void onClose() {

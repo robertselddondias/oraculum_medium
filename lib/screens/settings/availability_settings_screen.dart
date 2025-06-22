@@ -14,6 +14,16 @@ class _AvailabilitySettingsScreenState extends State<AvailabilitySettingsScreen>
   final MediumAdminController _controller = Get.find<MediumAdminController>();
 
   @override
+  void initState() {
+    super.initState();
+    _loadCurrentSettings();
+  }
+
+  void _loadCurrentSettings() async {
+    await _controller.loadAvailabilitySettings();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
@@ -23,24 +33,34 @@ class _AvailabilitySettingsScreenState extends State<AvailabilitySettingsScreen>
             children: [
               _buildHeader(),
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      _buildQuickToggleSection(),
-                      const SizedBox(height: 20),
-                      _buildDefaultDurationSection(),
-                      const SizedBox(height: 20),
-                      _buildAvailableDurationsSection(),
-                      const SizedBox(height: 20),
-                      _buildBreakTimesSection(),
-                      const SizedBox(height: 20),
-                      _buildAdvancedSettingsSection(),
-                      const SizedBox(height: 32),
-                      _buildSaveButton(),
-                    ],
-                  ),
-                ),
+                child: Obx(() {
+                  if (_controller.isLoading.value) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    );
+                  }
+
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        _buildQuickToggleSection(),
+                        const SizedBox(height: 20),
+                        _buildDefaultDurationSection(),
+                        const SizedBox(height: 20),
+                        _buildAvailableDurationsSection(),
+                        const SizedBox(height: 20),
+                        _buildBreakTimesSection(),
+                        const SizedBox(height: 20),
+                        _buildAdvancedSettingsSection(),
+                        const SizedBox(height: 32),
+                        _buildSaveButton(),
+                      ],
+                    ),
+                  );
+                }),
               ),
             ],
           ),
@@ -114,14 +134,11 @@ class _AvailabilitySettingsScreenState extends State<AvailabilitySettingsScreen>
                   ],
                 ),
               ),
-              Obx(() {
-                final isAvailable = _controller.mediumProfile.value?.isAvailable ?? false;
-                return Switch(
-                  value: isAvailable,
-                  onChanged: (_) => _controller.toggleAvailabilityStatus(),
-                  activeColor: AppTheme.primaryColor,
-                );
-              }),
+              Obx(() => Switch(
+                value: _controller.isAvailable.value,
+                onChanged: (_) => _controller.toggleAvailabilityStatus(),
+                activeColor: AppTheme.primaryColor,
+              )),
             ],
           ),
         ],
@@ -261,15 +278,15 @@ class _AvailabilitySettingsScreenState extends State<AvailabilitySettingsScreen>
             ),
           ),
           const SizedBox(height: 16),
-          _buildSliderSetting(
+          Obx(() => _buildSliderSetting(
             'Tempo entre consultas',
             'Intervalo mínimo entre agendamentos',
-            _controller.bufferTime.toDouble(),
+            _controller.bufferTime.value.toDouble(),
             5.0,
             60.0,
             'min',
                 (value) => _controller.updateBufferTime(value.round()),
-          ),
+          )),
         ],
       ),
     );
@@ -291,22 +308,22 @@ class _AvailabilitySettingsScreenState extends State<AvailabilitySettingsScreen>
             ),
           ),
           const SizedBox(height: 16),
-          _buildSliderSetting(
+          Obx(() => _buildSliderSetting(
             'Máximo de consultas por dia',
             'Limite diário de agendamentos',
-            _controller.maxDailyAppointments.toDouble(),
+            _controller.maxDailyAppointments.value.toDouble(),
             1.0,
             20.0,
             'consultas',
                 (value) => _controller.updateMaxDailyAppointments(value.round()),
-          ),
+          )),
           const SizedBox(height: 20),
-          _buildSwitchSetting(
+          Obx(() => _buildSwitchSetting(
             'Aceitar automaticamente',
             'Confirmar agendamentos automaticamente',
             _controller.autoAcceptAppointments.value,
                 (value) => _controller.updateAutoAcceptAppointments(value),
-          ),
+          )),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(12),
@@ -475,10 +492,23 @@ class _AvailabilitySettingsScreenState extends State<AvailabilitySettingsScreen>
   }
 
   void _saveSettings() async {
-    final success = await _controller.updateAvailability(_controller.availability);
+    final success = await _controller.saveAvailabilitySettings();
 
     if (success) {
+      Get.snackbar(
+        'Sucesso',
+        'Configurações salvas com sucesso',
+        backgroundColor: Colors.green.withOpacity(0.8),
+        colorText: Colors.white,
+      );
       Get.back();
+    } else {
+      Get.snackbar(
+        'Erro',
+        'Não foi possível salvar as configurações',
+        backgroundColor: Colors.red.withOpacity(0.8),
+        colorText: Colors.white,
+      );
     }
   }
 }
