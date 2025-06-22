@@ -11,29 +11,47 @@ class SettingsController extends GetxController {
   final RxBool isSaving = false.obs;
   final RxMap<String, dynamic> settings = RxMap<String, dynamic>({});
 
-  // Configurações de Notificação
   final RxBool newAppointments = true.obs;
   final RxBool appointmentReminders = true.obs;
   final RxBool paymentNotifications = true.obs;
   final RxBool reviewNotifications = true.obs;
   final RxBool systemUpdates = true.obs;
+  final RxBool promotionalEmails = false.obs;
+  final RxBool maintenanceAlerts = true.obs;
 
-  // Configurações de Consulta
   final RxBool autoAcceptAppointments = false.obs;
   final RxInt bufferTimeBetweenAppointments = 15.obs;
   final RxInt maxDailyAppointments = 10.obs;
   final RxBool allowCancellations = true.obs;
   final RxInt cancellationDeadlineHours = 24.obs;
 
-  // Configurações de Interface
   final RxBool isDarkMode = false.obs;
   final RxString language = 'pt'.obs;
   final RxString timezone = 'America/Sao_Paulo'.obs;
+  final RxBool enableAnimations = true.obs;
+  final RxBool enableHapticFeedback = true.obs;
+  final RxString defaultCurrency = 'BRL'.obs;
 
-  // Configurações de Privacidade
   final RxBool showOnlineStatus = true.obs;
   final RxBool allowDirectMessages = true.obs;
   final RxBool shareAnalytics = false.obs;
+  final RxBool sharePerformanceData = false.obs;
+  final RxBool allowProfileIndexing = true.obs;
+
+  final RxBool enableTwoFactor = false.obs;
+  final RxBool enableEmailVerification = true.obs;
+  final RxBool logSecurityEvents = true.obs;
+  final RxBool requirePasswordChange = false.obs;
+
+  final RxDouble soundVolume = 0.8.obs;
+  final RxBool enableNotificationSounds = true.obs;
+  final RxBool enableVibration = true.obs;
+  final RxString notificationTone = 'default'.obs;
+
+  final RxBool enableDataBackup = true.obs;
+  final RxString backupFrequency = 'weekly'.obs;
+  final RxBool autoSync = true.obs;
+  final RxBool compressBackups = true.obs;
 
   String? get currentMediumId => _authController.mediumId;
 
@@ -65,31 +83,53 @@ class SettingsController extends GetxController {
   }
 
   void _parseSettings(Map<String, dynamic> data) {
-    // Notificações
     final notifications = data['notifications'] as Map<String, dynamic>? ?? {};
     newAppointments.value = notifications['newAppointments'] ?? true;
     appointmentReminders.value = notifications['appointmentReminders'] ?? true;
     paymentNotifications.value = notifications['paymentNotifications'] ?? true;
     reviewNotifications.value = notifications['reviewNotifications'] ?? true;
     systemUpdates.value = notifications['systemUpdates'] ?? true;
+    promotionalEmails.value = notifications['promotionalEmails'] ?? false;
+    maintenanceAlerts.value = notifications['maintenanceAlerts'] ?? true;
 
-    // Consultas
     autoAcceptAppointments.value = data['autoAcceptAppointments'] ?? false;
     bufferTimeBetweenAppointments.value = data['bufferTimeBetweenAppointments'] ?? 15;
     maxDailyAppointments.value = data['maxDailyAppointments'] ?? 10;
     allowCancellations.value = data['allowCancellations'] ?? true;
     cancellationDeadlineHours.value = data['cancellationDeadlineHours'] ?? 24;
 
-    // Interface
-    isDarkMode.value = data['isDarkMode'] ?? false;
-    language.value = data['language'] ?? 'pt';
-    timezone.value = data['timezone'] ?? 'America/Sao_Paulo';
+    final interface = data['interface'] as Map<String, dynamic>? ?? {};
+    isDarkMode.value = interface['isDarkMode'] ?? false;
+    language.value = interface['language'] ?? 'pt';
+    timezone.value = interface['timezone'] ?? 'America/Sao_Paulo';
+    enableAnimations.value = interface['enableAnimations'] ?? true;
+    enableHapticFeedback.value = interface['enableHapticFeedback'] ?? true;
+    defaultCurrency.value = interface['defaultCurrency'] ?? 'BRL';
 
-    // Privacidade
     final privacy = data['privacy'] as Map<String, dynamic>? ?? {};
     showOnlineStatus.value = privacy['showOnlineStatus'] ?? true;
     allowDirectMessages.value = privacy['allowDirectMessages'] ?? true;
     shareAnalytics.value = privacy['shareAnalytics'] ?? false;
+    sharePerformanceData.value = privacy['sharePerformanceData'] ?? false;
+    allowProfileIndexing.value = privacy['allowProfileIndexing'] ?? true;
+
+    final security = data['security'] as Map<String, dynamic>? ?? {};
+    enableTwoFactor.value = security['enableTwoFactor'] ?? false;
+    enableEmailVerification.value = security['enableEmailVerification'] ?? true;
+    logSecurityEvents.value = security['logSecurityEvents'] ?? true;
+    requirePasswordChange.value = security['requirePasswordChange'] ?? false;
+
+    final audio = data['audio'] as Map<String, dynamic>? ?? {};
+    soundVolume.value = (audio['soundVolume'] ?? 0.8).toDouble();
+    enableNotificationSounds.value = audio['enableNotificationSounds'] ?? true;
+    enableVibration.value = audio['enableVibration'] ?? true;
+    notificationTone.value = audio['notificationTone'] ?? 'default';
+
+    final backup = data['backup'] as Map<String, dynamic>? ?? {};
+    enableDataBackup.value = backup['enableDataBackup'] ?? true;
+    backupFrequency.value = backup['backupFrequency'] ?? 'weekly';
+    autoSync.value = backup['autoSync'] ?? true;
+    compressBackups.value = backup['compressBackups'] ?? true;
   }
 
   Map<String, dynamic> _buildSettingsData() {
@@ -100,20 +140,48 @@ class SettingsController extends GetxController {
         'paymentNotifications': paymentNotifications.value,
         'reviewNotifications': reviewNotifications.value,
         'systemUpdates': systemUpdates.value,
+        'promotionalEmails': promotionalEmails.value,
+        'maintenanceAlerts': maintenanceAlerts.value,
       },
       'autoAcceptAppointments': autoAcceptAppointments.value,
       'bufferTimeBetweenAppointments': bufferTimeBetweenAppointments.value,
       'maxDailyAppointments': maxDailyAppointments.value,
       'allowCancellations': allowCancellations.value,
       'cancellationDeadlineHours': cancellationDeadlineHours.value,
-      'isDarkMode': isDarkMode.value,
-      'language': language.value,
-      'timezone': timezone.value,
+      'interface': {
+        'isDarkMode': isDarkMode.value,
+        'language': language.value,
+        'timezone': timezone.value,
+        'enableAnimations': enableAnimations.value,
+        'enableHapticFeedback': enableHapticFeedback.value,
+        'defaultCurrency': defaultCurrency.value,
+      },
       'privacy': {
         'showOnlineStatus': showOnlineStatus.value,
         'allowDirectMessages': allowDirectMessages.value,
         'shareAnalytics': shareAnalytics.value,
+        'sharePerformanceData': sharePerformanceData.value,
+        'allowProfileIndexing': allowProfileIndexing.value,
       },
+      'security': {
+        'enableTwoFactor': enableTwoFactor.value,
+        'enableEmailVerification': enableEmailVerification.value,
+        'logSecurityEvents': logSecurityEvents.value,
+        'requirePasswordChange': requirePasswordChange.value,
+      },
+      'audio': {
+        'soundVolume': soundVolume.value,
+        'enableNotificationSounds': enableNotificationSounds.value,
+        'enableVibration': enableVibration.value,
+        'notificationTone': notificationTone.value,
+      },
+      'backup': {
+        'enableDataBackup': enableDataBackup.value,
+        'backupFrequency': backupFrequency.value,
+        'autoSync': autoSync.value,
+        'compressBackups': compressBackups.value,
+      },
+      'updatedAt': DateTime.now().toIso8601String(),
     };
   }
 
@@ -130,14 +198,15 @@ class SettingsController extends GetxController {
 
       if (success) {
         settings.value = settingsData;
+        debugPrint('✅ Configurações salvas com sucesso');
         Get.snackbar(
-          'Configurações Salvas',
-          'Suas configurações foram atualizadas com sucesso',
+          'Sucesso',
+          'Configurações salvas com sucesso!',
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
       } else {
-        Get.snackbar('Erro', 'Não foi possível salvar as configurações');
+        Get.snackbar('Erro', 'Erro ao salvar configurações');
       }
 
       return success;
@@ -150,84 +219,15 @@ class SettingsController extends GetxController {
     }
   }
 
-  // Métodos para atualizar configurações específicas
-  void updateNotificationSetting(String key, bool value) {
-    switch (key) {
-      case 'newAppointments':
-        newAppointments.value = value;
-        break;
-      case 'appointmentReminders':
-        appointmentReminders.value = value;
-        break;
-      case 'paymentNotifications':
-        paymentNotifications.value = value;
-        break;
-      case 'reviewNotifications':
-        reviewNotifications.value = value;
-        break;
-      case 'systemUpdates':
-        systemUpdates.value = value;
-        break;
-    }
-  }
-
-  void updateAutoAcceptAppointments(bool value) {
-    autoAcceptAppointments.value = value;
-  }
-
-  void updateBufferTime(int minutes) {
-    bufferTimeBetweenAppointments.value = minutes;
-  }
-
-  void updateMaxDailyAppointments(int max) {
-    maxDailyAppointments.value = max;
-  }
-
-  void updateCancellationPolicy(bool allowCancellations, int deadlineHours) {
-    this.allowCancellations.value = allowCancellations;
-    cancellationDeadlineHours.value = deadlineHours;
-  }
-
-  void updateTheme(bool darkMode) {
-    isDarkMode.value = darkMode;
-  }
-
-  void updateLanguage(String lang) {
-    language.value = lang;
-  }
-
-  void updateTimezone(String tz) {
-    timezone.value = tz;
-  }
-
-  void updatePrivacySetting(String key, bool value) {
-    switch (key) {
-      case 'showOnlineStatus':
-        showOnlineStatus.value = value;
-        break;
-      case 'allowDirectMessages':
-        allowDirectMessages.value = value;
-        break;
-      case 'shareAnalytics':
-        shareAnalytics.value = value;
-        break;
-    }
-  }
-
-  Future<bool> resetAllSettings() async {
+  Future<bool> resetSettings() async {
     try {
-      debugPrint('=== resetAllSettings() ===');
+      debugPrint('=== resetSettings() ===');
 
-      // Confirmar com o usuário
       final confirmed = await Get.dialog<bool>(
         AlertDialog(
-          backgroundColor: const Color(0xFF2A2A40),
-          title: const Text(
-            'Resetar Configurações',
-            style: TextStyle(color: Colors.white),
-          ),
+          title: const Text('Resetar Configurações'),
           content: const Text(
-            'Tem certeza que deseja restaurar todas as configurações para os valores padrão?',
+            'Tem certeza de que deseja resetar todas as configurações para os valores padrão? Esta ação não pode ser desfeita.',
             style: TextStyle(color: Colors.white70),
           ),
           actions: [
@@ -246,10 +246,8 @@ class SettingsController extends GetxController {
 
       if (confirmed != true) return false;
 
-      // Resetar para valores padrão
       _resetToDefaults();
 
-      // Salvar configurações padrão
       final success = await saveSettings();
 
       if (success) {
@@ -269,29 +267,47 @@ class SettingsController extends GetxController {
   }
 
   void _resetToDefaults() {
-    // Notificações
     newAppointments.value = true;
     appointmentReminders.value = true;
     paymentNotifications.value = true;
     reviewNotifications.value = true;
     systemUpdates.value = true;
+    promotionalEmails.value = false;
+    maintenanceAlerts.value = true;
 
-    // Consultas
     autoAcceptAppointments.value = false;
     bufferTimeBetweenAppointments.value = 15;
     maxDailyAppointments.value = 10;
     allowCancellations.value = true;
     cancellationDeadlineHours.value = 24;
 
-    // Interface
     isDarkMode.value = false;
     language.value = 'pt';
     timezone.value = 'America/Sao_Paulo';
+    enableAnimations.value = true;
+    enableHapticFeedback.value = true;
+    defaultCurrency.value = 'BRL';
 
-    // Privacidade
     showOnlineStatus.value = true;
     allowDirectMessages.value = true;
     shareAnalytics.value = false;
+    sharePerformanceData.value = false;
+    allowProfileIndexing.value = true;
+
+    enableTwoFactor.value = false;
+    enableEmailVerification.value = true;
+    logSecurityEvents.value = true;
+    requirePasswordChange.value = false;
+
+    soundVolume.value = 0.8;
+    enableNotificationSounds.value = true;
+    enableVibration.value = true;
+    notificationTone.value = 'default';
+
+    enableDataBackup.value = true;
+    backupFrequency.value = 'weekly';
+    autoSync.value = true;
+    compressBackups.value = true;
   }
 
   Future<void> exportSettings() async {
@@ -300,8 +316,6 @@ class SettingsController extends GetxController {
 
       final settingsData = _buildSettingsData();
 
-      // Implementar exportação das configurações
-      // Por enquanto, apenas mostrar uma mensagem
       Get.snackbar(
         'Em Desenvolvimento',
         'Exportação de configurações será implementada em breve',
@@ -318,8 +332,6 @@ class SettingsController extends GetxController {
     try {
       debugPrint('=== importSettings() ===');
 
-      // Implementar importação das configurações
-      // Por enquanto, apenas mostrar uma mensagem
       Get.snackbar(
         'Em Desenvolvimento',
         'Importação de configurações será implementada em breve',
@@ -332,51 +344,139 @@ class SettingsController extends GetxController {
     }
   }
 
-  Future<void> refreshSettings() async {
-    await loadSettings();
-  }
-
-  // Getters para facilitar o acesso
-  bool getNotificationSetting(String key) {
+  void updateNotificationSetting(String key, bool value) {
     switch (key) {
       case 'newAppointments':
-        return newAppointments.value;
+        newAppointments.value = value;
+        break;
       case 'appointmentReminders':
-        return appointmentReminders.value;
+        appointmentReminders.value = value;
+        break;
       case 'paymentNotifications':
-        return paymentNotifications.value;
+        paymentNotifications.value = value;
+        break;
       case 'reviewNotifications':
-        return reviewNotifications.value;
+        reviewNotifications.value = value;
+        break;
       case 'systemUpdates':
-        return systemUpdates.value;
-      default:
-        return true;
+        systemUpdates.value = value;
+        break;
+      case 'promotionalEmails':
+        promotionalEmails.value = value;
+        break;
+      case 'maintenanceAlerts':
+        maintenanceAlerts.value = value;
+        break;
     }
   }
 
-  bool getPrivacySetting(String key) {
+  void updatePrivacySetting(String key, bool value) {
     switch (key) {
       case 'showOnlineStatus':
-        return showOnlineStatus.value;
+        showOnlineStatus.value = value;
+        break;
       case 'allowDirectMessages':
-        return allowDirectMessages.value;
+        allowDirectMessages.value = value;
+        break;
       case 'shareAnalytics':
-        return shareAnalytics.value;
-      default:
-        return true;
+        shareAnalytics.value = value;
+        break;
+      case 'sharePerformanceData':
+        sharePerformanceData.value = value;
+        break;
+      case 'allowProfileIndexing':
+        allowProfileIndexing.value = value;
+        break;
     }
   }
 
-  Map<String, String> get availableLanguages => {
-    'pt': 'Português',
-    'en': 'English',
-    'es': 'Español',
-  };
+  void updateSecuritySetting(String key, bool value) {
+    switch (key) {
+      case 'enableTwoFactor':
+        enableTwoFactor.value = value;
+        break;
+      case 'enableEmailVerification':
+        enableEmailVerification.value = value;
+        break;
+      case 'logSecurityEvents':
+        logSecurityEvents.value = value;
+        break;
+      case 'requirePasswordChange':
+        requirePasswordChange.value = value;
+        break;
+    }
+  }
 
-  Map<String, String> get availableTimezones => {
-    'America/Sao_Paulo': 'São Paulo (GMT-3)',
-    'America/New_York': 'New York (GMT-5)',
-    'Europe/London': 'London (GMT+0)',
-    'Europe/Madrid': 'Madrid (GMT+1)',
-  };
+  Future<bool> validateSettings() async {
+    if (bufferTimeBetweenAppointments.value < 5 || bufferTimeBetweenAppointments.value > 60) {
+      Get.snackbar('Erro', 'Tempo de buffer deve estar entre 5 e 60 minutos');
+      return false;
+    }
+
+    if (maxDailyAppointments.value < 1 || maxDailyAppointments.value > 50) {
+      Get.snackbar('Erro', 'Máximo de consultas diárias deve estar entre 1 e 50');
+      return false;
+    }
+
+    if (cancellationDeadlineHours.value < 1 || cancellationDeadlineHours.value > 168) {
+      Get.snackbar('Erro', 'Prazo de cancelamento deve estar entre 1 e 168 horas');
+      return false;
+    }
+
+    if (soundVolume.value < 0.0 || soundVolume.value > 1.0) {
+      Get.snackbar('Erro', 'Volume do som deve estar entre 0 e 1');
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<void> clearCache() async {
+    try {
+      debugPrint('=== clearCache() ===');
+
+      settings.clear();
+
+      Get.snackbar(
+        'Cache Limpo',
+        'Cache das configurações foi limpo com sucesso',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      debugPrint('❌ Erro ao limpar cache: $e');
+      Get.snackbar('Erro', 'Erro ao limpar cache');
+    }
+  }
+
+  Map<String, dynamic> getNotificationSettings() {
+    return {
+      'newAppointments': newAppointments.value,
+      'appointmentReminders': appointmentReminders.value,
+      'paymentNotifications': paymentNotifications.value,
+      'reviewNotifications': reviewNotifications.value,
+      'systemUpdates': systemUpdates.value,
+      'promotionalEmails': promotionalEmails.value,
+      'maintenanceAlerts': maintenanceAlerts.value,
+    };
+  }
+
+  Map<String, dynamic> getPrivacySettings() {
+    return {
+      'showOnlineStatus': showOnlineStatus.value,
+      'allowDirectMessages': allowDirectMessages.value,
+      'shareAnalytics': shareAnalytics.value,
+      'sharePerformanceData': sharePerformanceData.value,
+      'allowProfileIndexing': allowProfileIndexing.value,
+    };
+  }
+
+  Map<String, dynamic> getSecuritySettings() {
+    return {
+      'enableTwoFactor': enableTwoFactor.value,
+      'enableEmailVerification': enableEmailVerification.value,
+      'logSecurityEvents': logSecurityEvents.value,
+      'requirePasswordChange': requirePasswordChange.value,
+    };
+  }
 }

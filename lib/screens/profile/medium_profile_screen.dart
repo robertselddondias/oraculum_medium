@@ -54,6 +54,8 @@ class MediumProfileScreen extends StatelessWidget {
                       SizedBox(height: isLargeScreen ? 20 : 16),
                       _buildStatusCard(medium, controller, isLargeScreen),
                       SizedBox(height: isLargeScreen ? 20 : 16),
+                      _buildPerformanceCard(controller, isLargeScreen),
+                      SizedBox(height: isLargeScreen ? 20 : 16),
                       _buildQuickActions(isLargeScreen, isTablet),
                       SizedBox(height: isLargeScreen ? 20 : 16),
                       _buildMenuOptions(authController, isLargeScreen),
@@ -90,6 +92,7 @@ class MediumProfileScreen extends StatelessWidget {
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
+            textAlign: TextAlign.center,
           ).animate().fadeIn(
             delay: const Duration(milliseconds: 300),
             duration: const Duration(milliseconds: 500),
@@ -123,10 +126,10 @@ class MediumProfileScreen extends StatelessWidget {
           CircleAvatar(
             radius: isLargeScreen ? 60 : 50,
             backgroundColor: AppTheme.primaryColor.withOpacity(0.3),
-            backgroundImage: medium.imageUrl != null
+            backgroundImage: medium.imageUrl != null && medium.imageUrl!.isNotEmpty
                 ? NetworkImage(medium.imageUrl!)
                 : null,
-            child: medium.imageUrl == null
+            child: medium.imageUrl == null || medium.imageUrl!.isEmpty
                 ? Icon(
               Icons.person,
               size: isLargeScreen ? 60 : 50,
@@ -139,287 +142,68 @@ class MediumProfileScreen extends StatelessWidget {
           ),
           SizedBox(height: isLargeScreen ? 20 : 16),
           Text(
-            medium.name,
+            medium.name ?? 'Nome não informado',
             style: TextStyle(
               fontSize: isLargeScreen ? 28 : 24,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
+            textAlign: TextAlign.center,
           ).animate().fadeIn(
             delay: const Duration(milliseconds: 600),
             duration: const Duration(milliseconds: 500),
           ),
           SizedBox(height: isLargeScreen ? 12 : 8),
           Text(
-            medium.email,
+            medium.email ?? '',
             style: TextStyle(
-              fontSize: isLargeScreen ? 18 : 16,
-              color: Colors.white60,
+              fontSize: isLargeScreen ? 16 : 14,
+              color: Colors.white70,
             ),
+            textAlign: TextAlign.center,
           ).animate().fadeIn(
             delay: const Duration(milliseconds: 700),
             duration: const Duration(milliseconds: 500),
           ),
-          SizedBox(height: isLargeScreen ? 24 : 16),
-          _buildStatsRow(medium, isLargeScreen, isTablet),
-          if (medium.bio.isNotEmpty) ...[
-            SizedBox(height: isLargeScreen ? 20 : 16),
-            const Divider(color: Colors.white24),
-            SizedBox(height: isLargeScreen ? 20 : 16),
-            Text(
-              medium.bio,
-              style: TextStyle(
-                fontSize: isLargeScreen ? 16 : 14,
-                color: Colors.white70,
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
+          if (medium.specialties != null && medium.specialties!.isNotEmpty) ...[
+            SizedBox(height: isLargeScreen ? 16 : 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: medium.specialties!.take(3).map<Widget>((specialty) {
+                return Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isLargeScreen ? 12 : 8,
+                    vertical: isLargeScreen ? 6 : 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    specialty.toString(),
+                    style: TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontSize: isLargeScreen ? 14 : 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                );
+              }).toList(),
             ).animate().fadeIn(
-              delay: const Duration(milliseconds: 1000),
+              delay: const Duration(milliseconds: 800),
               duration: const Duration(milliseconds: 500),
             ),
           ],
-          SizedBox(height: isLargeScreen ? 20 : 16),
-          const Divider(color: Colors.white24),
-          SizedBox(height: isLargeScreen ? 20 : 16),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Especialidades',
-              style: TextStyle(
-                fontSize: isLargeScreen ? 18 : 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ).animate().fadeIn(
-              delay: const Duration(milliseconds: 1100),
-              duration: const Duration(milliseconds: 500),
-            ),
-          ),
-          SizedBox(height: isLargeScreen ? 16 : 12),
-          Wrap(
-            spacing: isLargeScreen ? 12 : 8,
-            runSpacing: isLargeScreen ? 12 : 8,
-            children: medium.specialties.asMap().entries.map<Widget>((entry) {
-              final index = entry.key;
-              final specialty = entry.value;
-              final delayMilliseconds = 1200 + (index * 100);
-
-              return Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isLargeScreen ? 16 : 12,
-                  vertical: isLargeScreen ? 8 : 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: AppTheme.primaryColor.withOpacity(0.5),
-                  ),
-                ),
-                child: Text(
-                  specialty,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: isLargeScreen ? 14 : 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ).animate().fadeIn(
-                delay: Duration(milliseconds: delayMilliseconds.toInt()),
-                duration: const Duration(milliseconds: 500),
-              ).scale(
-                begin: const Offset(0.8, 0.8),
-                end: const Offset(1.0, 1.0),
-                duration: const Duration(milliseconds: 300),
-              );
-            }).toList(),
-          ),
         ],
       ),
     ).animate().fadeIn(
-      delay: const Duration(milliseconds: 300),
-      duration: const Duration(milliseconds: 500),
+      delay: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 600),
     ).slideY(
       begin: 0.1,
       end: 0,
-      duration: const Duration(milliseconds: 400),
-    );
-  }
-
-  Widget _buildStatsRow(medium, bool isLargeScreen, bool isTablet) {
-    if (isTablet) {
-      return Row(
-        children: [
-          Expanded(
-            child: _buildStatCard(
-              'R\$ ${medium.pricePerMinute.toStringAsFixed(2)}',
-              'por minuto',
-              AppTheme.successColor,
-              Icons.attach_money,
-              isLargeScreen,
-            ),
-          ),
-          SizedBox(width: isLargeScreen ? 20 : 16),
-          Expanded(
-            child: _buildStatCard(
-              medium.rating.toStringAsFixed(1),
-              'avaliação',
-              Colors.amber,
-              Icons.star,
-              isLargeScreen,
-            ),
-          ),
-          SizedBox(width: isLargeScreen ? 20 : 16),
-          Expanded(
-            child: _buildStatCard(
-              '${medium.totalAppointments}',
-              'consultas',
-              Colors.white,
-              Icons.event,
-              isLargeScreen,
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            children: [
-              Text(
-                'R\$ ${medium.pricePerMinute.toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontSize: isLargeScreen ? 24 : 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.successColor,
-                ),
-              ),
-              Text(
-                'por minuto',
-                style: TextStyle(
-                  fontSize: isLargeScreen ? 14 : 12,
-                  color: Colors.white60,
-                ),
-              ),
-            ],
-          ).animate().fadeIn(
-            delay: const Duration(milliseconds: 800),
-            duration: const Duration(milliseconds: 500),
-          ),
-        ),
-        Container(
-          width: 1,
-          height: isLargeScreen ? 48 : 40,
-          color: Colors.white.withOpacity(0.2),
-        ),
-        Expanded(
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.star,
-                    color: Colors.amber,
-                    size: isLargeScreen ? 24 : 20,
-                  ),
-                  SizedBox(width: isLargeScreen ? 6 : 4),
-                  Text(
-                    medium.rating.toStringAsFixed(1),
-                    style: TextStyle(
-                      fontSize: isLargeScreen ? 24 : 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                'avaliação',
-                style: TextStyle(
-                  fontSize: isLargeScreen ? 14 : 12,
-                  color: Colors.white60,
-                ),
-              ),
-            ],
-          ).animate().fadeIn(
-            delay: const Duration(milliseconds: 850),
-            duration: const Duration(milliseconds: 500),
-          ),
-        ),
-        Container(
-          width: 1,
-          height: isLargeScreen ? 48 : 40,
-          color: Colors.white.withOpacity(0.2),
-        ),
-        Expanded(
-          child: Column(
-            children: [
-              Text(
-                '${medium.totalAppointments}',
-                style: TextStyle(
-                  fontSize: isLargeScreen ? 24 : 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              Text(
-                'consultas',
-                style: TextStyle(
-                  fontSize: isLargeScreen ? 14 : 12,
-                  color: Colors.white60,
-                ),
-              ),
-            ],
-          ).animate().fadeIn(
-            delay: const Duration(milliseconds: 900),
-            duration: const Duration(milliseconds: 500),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(String value, String label, Color color, IconData icon, bool isLargeScreen) {
-    return Container(
-      padding: EdgeInsets.all(isLargeScreen ? 20 : 16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            icon,
-            color: color,
-            size: isLargeScreen ? 32 : 28,
-          ),
-          SizedBox(height: isLargeScreen ? 12 : 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: isLargeScreen ? 22 : 20,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          SizedBox(height: isLargeScreen ? 6 : 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: isLargeScreen ? 14 : 12,
-              color: Colors.white60,
-            ),
-          ),
-        ],
-      ),
+      duration: const Duration(milliseconds: 500),
     );
   }
 
@@ -446,15 +230,15 @@ class MediumProfileScreen extends StatelessWidget {
                   vertical: isLargeScreen ? 8 : 6,
                 ),
                 decoration: BoxDecoration(
-                  color: medium.isActive
+                  color: (medium.isActive ?? true)
                       ? Colors.green.withOpacity(0.2)
                       : Colors.orange.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  medium.isActive ? 'Ativa' : 'Inativa',
+                  (medium.isActive ?? true) ? 'Ativa' : 'Inativa',
                   style: TextStyle(
-                    color: medium.isActive ? Colors.green : Colors.orange,
+                    color: (medium.isActive ?? true) ? Colors.green : Colors.orange,
                     fontWeight: FontWeight.bold,
                     fontSize: isLargeScreen ? 14 : 12,
                   ),
@@ -463,35 +247,55 @@ class MediumProfileScreen extends StatelessWidget {
             ],
           ),
           SizedBox(height: isLargeScreen ? 20 : 16),
-          Row(
+          Obx(() => Row(
             children: [
               Container(
                 width: isLargeScreen ? 14 : 12,
                 height: isLargeScreen ? 14 : 12,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: medium.isAvailable ? Colors.green : Colors.grey,
+                  color: controller.isAvailable.value ? Colors.green : Colors.grey,
                 ),
               ),
               SizedBox(width: isLargeScreen ? 16 : 12),
               Expanded(
                 child: Text(
-                  'Disponível para consultas: ${medium.isAvailable ? 'Sim' : 'Não'}',
+                  'Disponível para consultas: ${controller.isAvailable.value ? 'Sim' : 'Não'}',
                   style: TextStyle(
                     fontSize: isLargeScreen ? 18 : 16,
                     color: Colors.white70,
                   ),
                 ),
               ),
-              Switch(
-                value: medium.isAvailable,
-                onChanged: medium.isActive
+              Obx(() => Switch(
+                value: controller.isAvailable.value,
+                onChanged: (medium.isActive ?? true)
                     ? (_) => controller.toggleAvailabilityStatus()
                     : null,
                 activeColor: AppTheme.primaryColor,
+              )),
+            ],
+          )),
+          SizedBox(height: isLargeScreen ? 16 : 12),
+          Obx(() => Row(
+            children: [
+              Icon(
+                Icons.circle,
+                size: isLargeScreen ? 14 : 12,
+                color: controller.getStatusColor(),
+              ),
+              SizedBox(width: isLargeScreen ? 16 : 12),
+              Expanded(
+                child: Text(
+                  'Status: ${controller.getStatusText()}',
+                  style: TextStyle(
+                    fontSize: isLargeScreen ? 16 : 14,
+                    color: Colors.white70,
+                  ),
+                ),
               ),
             ],
-          ),
+          )),
         ],
       ),
     ).animate().fadeIn(
@@ -504,65 +308,161 @@ class MediumProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickActions(bool isLargeScreen, bool isTablet) {
-    if (isTablet) {
-      return Row(
+  Widget _buildPerformanceCard(MediumAdminController controller, bool isLargeScreen) {
+    return Container(
+      padding: EdgeInsets.all(isLargeScreen ? 24 : 20),
+      decoration: AppTheme.cardDecoration,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: _buildActionCard(
-              icon: Icons.schedule,
-              title: 'Agenda',
-              subtitle: 'Gerenciar horários',
-              onTap: () => Get.toNamed(AppRoutes.scheduleManagement),
-              isLargeScreen: isLargeScreen,
+          Text(
+            'Performance',
+            style: TextStyle(
+              fontSize: isLargeScreen ? 20 : 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
             ),
           ),
-          SizedBox(width: isLargeScreen ? 20 : 12),
-          Expanded(
-            child: _buildActionCard(
-              icon: Icons.trending_up,
-              title: 'Ganhos',
-              subtitle: 'Ver relatórios',
-              onTap: () => Get.toNamed(AppRoutes.earnings),
-              isLargeScreen: isLargeScreen,
-            ),
-          ),
-          SizedBox(width: isLargeScreen ? 20 : 12),
-          Expanded(
-            child: _buildActionCard(
-              icon: Icons.analytics,
-              title: 'Relatórios',
-              subtitle: 'Análises detalhadas',
-              onTap: () => Get.toNamed(AppRoutes.analytics),
-              isLargeScreen: isLargeScreen,
-            ),
-          ),
+          SizedBox(height: isLargeScreen ? 20 : 16),
+          Obx(() => Row(
+            children: [
+              Expanded(
+                child: _buildStatItem(
+                  'Consultas',
+                  controller.totalAppointments.value.toString(),
+                  Icons.calendar_today,
+                  isLargeScreen,
+                ),
+              ),
+              SizedBox(width: isLargeScreen ? 16 : 12),
+              Expanded(
+                child: _buildStatItem(
+                  'Avaliação',
+                  controller.averageRating.value.toStringAsFixed(1),
+                  Icons.star,
+                  isLargeScreen,
+                ),
+              ),
+              SizedBox(width: isLargeScreen ? 16 : 12),
+              Expanded(
+                child: _buildStatItem(
+                  'Ganhos',
+                  'R\$ ${controller.totalEarnings.value.toStringAsFixed(0)}',
+                  Icons.attach_money,
+                  isLargeScreen,
+                ),
+              ),
+            ],
+          )),
         ],
-      );
-    }
+      ),
+    ).animate().fadeIn(
+      delay: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 500),
+    ).slideY(
+      begin: 0.1,
+      end: 0,
+      duration: const Duration(milliseconds: 400),
+    );
+  }
 
-    return Row(
+  Widget _buildStatItem(String label, String value, IconData icon, bool isLargeScreen) {
+    return Column(
       children: [
-        Expanded(
-          child: _buildActionCard(
-            icon: Icons.schedule,
-            title: 'Agenda',
-            subtitle: 'Gerenciar horários',
-            onTap: () => Get.toNamed(AppRoutes.scheduleManagement),
-            isLargeScreen: isLargeScreen,
+        Icon(
+          icon,
+          color: AppTheme.primaryColor,
+          size: isLargeScreen ? 28 : 24,
+        ),
+        SizedBox(height: isLargeScreen ? 8 : 6),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: isLargeScreen ? 20 : 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
-        SizedBox(width: isLargeScreen ? 16 : 12),
-        Expanded(
-          child: _buildActionCard(
-            icon: Icons.trending_up,
-            title: 'Ganhos',
-            subtitle: 'Ver relatórios',
-            onTap: () => Get.toNamed(AppRoutes.earnings),
-            isLargeScreen: isLargeScreen,
+        SizedBox(height: isLargeScreen ? 4 : 2),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isLargeScreen ? 14 : 12,
+            color: Colors.white70,
           ),
+          textAlign: TextAlign.center,
         ),
       ],
+    );
+  }
+
+  Widget _buildQuickActions(bool isLargeScreen, bool isTablet) {
+    final actions = [
+      {
+        'icon': Icons.schedule,
+        'title': 'Agenda',
+        'subtitle': 'Gerenciar horários',
+        'route': AppRoutes.scheduleManagement,
+      },
+      {
+        'icon': Icons.trending_up,
+        'title': 'Ganhos',
+        'subtitle': 'Ver relatórios',
+        'route': AppRoutes.earnings,
+      },
+      if (isTablet)
+        {
+          'icon': Icons.analytics,
+          'title': 'Relatórios',
+          'subtitle': 'Análises detalhadas',
+          'route': AppRoutes.analytics,
+        },
+    ];
+
+    return Container(
+      padding: EdgeInsets.all(isLargeScreen ? 24 : 20),
+      decoration: AppTheme.cardDecoration,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Ações Rápidas',
+            style: TextStyle(
+              fontSize: isLargeScreen ? 20 : 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          SizedBox(height: isLargeScreen ? 20 : 16),
+          Row(
+            children: actions.asMap().entries.map<Widget>((entry) {
+              final index = entry.key;
+              final action = entry.value;
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    right: index < actions.length - 1 ? (isLargeScreen ? 16 : 12) : 0,
+                  ),
+                  child: _buildActionCard(
+                    icon: action['icon'] as IconData,
+                    title: action['title'] as String,
+                    subtitle: action['subtitle'] as String,
+                    onTap: () => Get.toNamed(action['route'] as String),
+                    isLargeScreen: isLargeScreen,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(
+      delay: const Duration(milliseconds: 700),
+      duration: const Duration(milliseconds: 500),
+    ).slideY(
+      begin: 0.1,
+      end: 0,
+      duration: const Duration(milliseconds: 400),
     );
   }
 
@@ -573,13 +473,16 @@ class MediumProfileScreen extends StatelessWidget {
     required VoidCallback onTap,
     required bool isLargeScreen,
   }) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: EdgeInsets.all(isLargeScreen ? 20 : 16),
-        decoration: AppTheme.cardDecoration.copyWith(
+        padding: EdgeInsets.all(isLargeScreen ? 16 : 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: AppTheme.primaryColor.withOpacity(0.3),
+            color: Colors.white.withOpacity(0.1),
             width: 1,
           ),
         ),
@@ -587,37 +490,31 @@ class MediumProfileScreen extends StatelessWidget {
           children: [
             Icon(
               icon,
-              size: isLargeScreen ? 40 : 32,
               color: AppTheme.primaryColor,
+              size: isLargeScreen ? 32 : 28,
             ),
             SizedBox(height: isLargeScreen ? 12 : 8),
             Text(
               title,
               style: TextStyle(
-                fontSize: isLargeScreen ? 18 : 16,
+                fontSize: isLargeScreen ? 16 : 14,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
+              textAlign: TextAlign.center,
             ),
-            SizedBox(height: isLargeScreen ? 6 : 4),
+            SizedBox(height: isLargeScreen ? 4 : 2),
             Text(
               subtitle,
               style: TextStyle(
-                fontSize: isLargeScreen ? 14 : 12,
-                color: Colors.white60,
+                fontSize: isLargeScreen ? 12 : 10,
+                color: Colors.white70,
               ),
               textAlign: TextAlign.center,
             ),
           ],
         ),
       ),
-    ).animate().fadeIn(
-      delay: const Duration(milliseconds: 700),
-      duration: const Duration(milliseconds: 500),
-    ).slideY(
-      begin: 0.1,
-      end: 0,
-      duration: const Duration(milliseconds: 400),
     );
   }
 
@@ -633,9 +530,15 @@ class MediumProfileScreen extends StatelessWidget {
             isLargeScreen: isLargeScreen,
           ),
           _buildMenuItem(
+            icon: Icons.schedule,
+            title: 'Disponibilidade',
+            onTap: () => Get.toNamed(AppRoutes.availabilitySettings),
+            isLargeScreen: isLargeScreen,
+          ),
+          _buildMenuItem(
             icon: Icons.help_outline,
             title: 'Ajuda e Suporte',
-            onTap: () => _showSupportOptions(),
+            onTap: () => _showHelpDialog(),
             isLargeScreen: isLargeScreen,
           ),
           _buildMenuItem(
@@ -648,13 +551,13 @@ class MediumProfileScreen extends StatelessWidget {
             icon: Icons.logout,
             title: 'Sair',
             onTap: () => _showLogoutDialog(authController),
-            isDestructive: true,
             isLargeScreen: isLargeScreen,
+            isDestructive: true,
           ),
         ],
       ),
     ).animate().fadeIn(
-      delay: const Duration(milliseconds: 900),
+      delay: const Duration(milliseconds: 800),
       duration: const Duration(milliseconds: 500),
     ).slideY(
       begin: 0.1,
@@ -667,13 +570,16 @@ class MediumProfileScreen extends StatelessWidget {
     required IconData icon,
     required String title,
     required VoidCallback onTap,
-    bool isDestructive = false,
     required bool isLargeScreen,
+    bool isDestructive = false,
   }) {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.all(isLargeScreen ? 20 : 16),
+        padding: EdgeInsets.symmetric(
+          horizontal: isLargeScreen ? 24 : 20,
+          vertical: isLargeScreen ? 20 : 16,
+        ),
         decoration: const BoxDecoration(
           border: Border(
             bottom: BorderSide(
@@ -758,6 +664,56 @@ class MediumProfileScreen extends StatelessWidget {
     );
   }
 
+  void _showHelpDialog() {
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: AppTheme.surfaceColor,
+        title: const Text(
+          'Ajuda e Suporte',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Para suporte técnico ou dúvidas sobre o uso do aplicativo, entre em contato conosco através do email: suporte@oraculum.com',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text(
+              'Fechar',
+              style: TextStyle(color: AppTheme.primaryColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAboutDialog() {
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: AppTheme.surfaceColor,
+        title: const Text(
+          'Sobre o Oraculum Médium',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Oraculum Médium v1.0.0\n\nAplicativo para profissionais místicos oferecerem seus serviços de consulta espiritual.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text(
+              'Fechar',
+              style: TextStyle(color: AppTheme.primaryColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showLogoutDialog(AuthController authController) {
     Get.dialog(
       Dialog(
@@ -804,226 +760,52 @@ class MediumProfileScreen extends StatelessWidget {
               const SizedBox(height: 12),
               const Text(
                 'Tem certeza que deseja sair da sua conta?',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 16,
-                ),
+                style: TextStyle(color: Colors.white70),
                 textAlign: TextAlign.center,
               ).animate().fadeIn(
-                delay: const Duration(milliseconds: 400),
+                delay: const Duration(milliseconds: 300),
                 duration: const Duration(milliseconds: 500),
               ),
               const SizedBox(height: 24),
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
+                    child: TextButton(
                       onPressed: () => Get.back(),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                       child: const Text(
                         'Cancelar',
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(color: Colors.white70),
                       ),
-                    ).animate().fadeIn(
-                      delay: const Duration(milliseconds: 600),
-                      duration: const Duration(milliseconds: 500),
-                    ).slideY(
-                      begin: 0.1,
-                      end: 0,
-                      duration: const Duration(milliseconds: 400),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         Get.back();
-                        authController.logout();
+                        await authController.logout();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                       child: const Text('Sair'),
-                    ).animate().fadeIn(
-                      delay: const Duration(milliseconds: 700),
-                      duration: const Duration(milliseconds: 500),
-                    ).slideY(
-                      begin: 0.1,
-                      end: 0,
-                      duration: const Duration(milliseconds: 400),
                     ),
                   ),
                 ],
-              ),
-            ],
-          ),
-        ),
-      ).animate().fadeIn(
-        duration: const Duration(milliseconds: 300),
-      ).scale(
-        begin: const Offset(0.8, 0.8),
-        end: const Offset(1.0, 1.0),
-        duration: const Duration(milliseconds: 400),
-      ),
-    );
-  }
-
-  void _showSupportOptions() {
-    Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: AppTheme.surfaceColor,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Ajuda e Suporte',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 24),
-            ListTile(
-              leading: const Icon(Icons.email, color: AppTheme.primaryColor),
-              title: const Text('Email', style: TextStyle(color: Colors.white)),
-              subtitle: const Text('suporte@oraculum.app', style: TextStyle(color: Colors.white60)),
-              onTap: () => Get.back(),
-            ),
-            ListTile(
-              leading: const Icon(Icons.phone, color: AppTheme.primaryColor),
-              title: const Text('Telefone', style: TextStyle(color: Colors.white)),
-              subtitle: const Text('(11) 99999-9999', style: TextStyle(color: Colors.white60)),
-              onTap: () => Get.back(),
-            ),
-            ListTile(
-              leading: const Icon(Icons.chat, color: AppTheme.primaryColor),
-              title: const Text('Chat ao Vivo', style: TextStyle(color: Colors.white)),
-              subtitle: const Text('Disponível 24/7', style: TextStyle(color: Colors.white60)),
-              onTap: () => Get.back(),
-            ),
-          ],
-        ),
-      ).animate().slideY(
-        begin: 1,
-        end: 0,
-        duration: const Duration(milliseconds: 400),
-      ),
-    );
-  }
-
-  void _showAboutDialog() {
-    Get.dialog(
-      Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceColor,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.2),
-              width: 1,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.info,
-                  color: AppTheme.primaryColor,
-                  size: 32,
-                ),
-              ).animate().scale(
-                duration: const Duration(milliseconds: 400),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Sobre o Oraculum',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ).animate().fadeIn(
-                delay: const Duration(milliseconds: 200),
-                duration: const Duration(milliseconds: 500),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Conectando pessoas a médiuns especializados para orientação espiritual e autoconhecimento.',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 16,
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.center,
-              ).animate().fadeIn(
-                delay: const Duration(milliseconds: 400),
-                duration: const Duration(milliseconds: 500),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Versão 1.0.0',
-                style: TextStyle(
-                  color: Colors.white60,
-                  fontSize: 14,
-                ),
-              ).animate().fadeIn(
-                delay: const Duration(milliseconds: 600),
-                duration: const Duration(milliseconds: 500),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => Get.back(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 45),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text('Fechar'),
-              ).animate().fadeIn(
-                delay: const Duration(milliseconds: 800),
-                duration: const Duration(milliseconds: 500),
-              ).slideY(
-                begin: 0.1,
+              ).animate().slideY(
+                begin: 0.3,
                 end: 0,
+                delay: const Duration(milliseconds: 400),
                 duration: const Duration(milliseconds: 400),
               ),
             ],
           ),
         ),
-      ).animate().fadeIn(
-        duration: const Duration(milliseconds: 300),
-      ).scale(
-        begin: const Offset(0.8, 0.8),
-        end: const Offset(1.0, 1.0),
-        duration: const Duration(milliseconds: 400),
       ),
     );
   }

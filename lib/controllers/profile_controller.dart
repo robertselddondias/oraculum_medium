@@ -3,12 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:oraculum_medium/controllers/auth_controller.dart';
+import 'package:oraculum_medium/controllers/medium_admin_controller.dart';
 import 'package:oraculum_medium/models/medium_model.dart';
 import 'package:oraculum_medium/services/firebase_service.dart';
-import 'package:oraculum_medium/services/medium_service.dart';
 
 class ProfileController extends GetxController {
-  final MediumService _mediumService = Get.find<MediumService>();
   final FirebaseService _firebaseService = Get.find<FirebaseService>();
   final AuthController _authController = Get.find<AuthController>();
   final ImagePicker _imagePicker = ImagePicker();
@@ -37,7 +36,15 @@ class ProfileController extends GetxController {
     'Leitura de Mãos',
   ].obs;
 
-  String? get currentMediumId => _authController.mediumId;
+  String? get currentMediumId => _authController.currentUser.value?.uid;
+
+  MediumAdminController? get _adminController {
+    try {
+      return Get.find<MediumAdminController>();
+    } catch (e) {
+      return null;
+    }
+  }
 
   @override
   void onInit() {
@@ -49,18 +56,99 @@ class ProfileController extends GetxController {
     if (currentMediumId == null) return;
 
     try {
-      debugPrint('=== loadProfile() ===');
+      debugPrint('=== ProfileController.loadProfile() ===');
       isLoading.value = true;
 
-      final profile = await _mediumService.getMediumProfile(currentMediumId!);
-      mediumProfile.value = profile;
+      final adminController = _adminController;
+      if (adminController != null && adminController.mediumProfile.value != null) {
+        mediumProfile.value = adminController.mediumProfile.value;
+        debugPrint('✅ Perfil carregado do MediumAdminController: ${mediumProfile.value?.name}');
+      } else {
+        final mediumDoc = await _firebaseService.getMediumData(currentMediumId!);
+        if (mediumDoc.exists) {
+          var mediumData = mediumDoc.data() as Map<String, dynamic>;
 
-      debugPrint('✅ Perfil carregado: ${profile?.name}');
+          // Tratar timestamps antes de criar o modelo
+          mediumData = _sanitizeTimestamps(mediumData);
+
+          mediumProfile.value = MediumModel.fromMap(mediumData, currentMediumId!);
+          debugPrint('✅ Perfil carregado do Firebase: ${mediumProfile.value?.name}');
+        } else {
+          debugPrint('❌ Perfil não encontrado no Firebase');
+          await _createDefaultProfile();
+        }
+      }
     } catch (e) {
       debugPrint('❌ Erro ao carregar perfil: $e');
       Get.snackbar('Erro', 'Não foi possível carregar o perfil');
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  Map<String, dynamic> _sanitizeTimestamps(Map<String, dynamic> data) {
+    final sanitized = Map<String, dynamic>.from(data);
+
+    // Lista de campos que podem conter timestamps
+    final timestampFields = ['createdAt', 'updatedAt', 'lastSeen'];
+
+    for (final field in timestampFields) {
+      if (sanitized[field] != null) {
+        final value = sanitized[field];
+        if (value is String) {
+          try {
+            sanitized[field] = DateTime.parse(value);
+          } catch (e) {
+            sanitized[field] = DateTime.now();
+          }
+        } else if (value.runtimeType.toString().contains('Timestamp')) {
+          try {
+            sanitized[field] = value.toDate();
+          } catch (e) {
+            sanitized[field] = DateTime.now();
+          }
+        } else if (value is! DateTime) {
+          sanitized[field] = DateTime.now();
+        }
+      }
+    }
+
+    return sanitized;
+  }
+
+  Future<void> _createDefaultProfile() async {
+    try {
+      final user = _authController.currentUser.value;
+      if (user == null) return;
+
+      final defaultProfile = {
+        'name': user.displayName ?? 'Médium',
+        'email': user.email ?? '',
+        'imageUrl': user.photoURL,
+        'bio': '',
+        'specialties': <String>[],
+        'pricePerMinute': 2.0,
+        'rating': 0.0,
+        'totalAppointments': 0,
+        'totalReviews': 0,
+        'isActive': true,
+        'isAvailable': false,
+        'phone': '',
+        'experience': '',
+        'languages': ['Português'],
+        'certificates': <String>[],
+        'socialMedia': <String, String>{},
+        'createdAt': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
+
+      await _firebaseService.createMediumData(currentMediumId!, defaultProfile);
+      mediumProfile.value = MediumModel.fromMap(defaultProfile, currentMediumId!);
+
+      debugPrint('✅ Perfil padrão criado');
+    } catch (e) {
+      debugPrint('❌ Erro ao criar perfil padrão: $e');
+      throw e;
     }
   }
 
@@ -71,37 +159,61 @@ class ProfileController extends GetxController {
     String? experience,
     List<String>? specialties,
     double? pricePerMinute,
+    String? imageUrl,
   }) async {
     if (currentMediumId == null) return false;
 
     try {
-      debugPrint('=== updateProfile() ===');
+      debugPrint('=== ProfileController.updateProfile() ===');
       isSaving.value = true;
 
-      final updateData = <String, dynamic>{};
+      final updateData = <String, dynamic>{
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
 
-      if (name != null) updateData['name'] = name;
+      if (name != null && name.isNotEmpty) updateData['name'] = name;
       if (phone != null) updateData['phone'] = phone;
-      if (bio != null) updateData['bio'] = bio;
+      if (bio != null) {
+        updateData['bio'] = bio;
+        updateData['biography'] = bio; // Para compatibilidade
+        updateData['description'] = bio; // Para compatibilidade
+      }
       if (experience != null) updateData['experience'] = experience;
       if (specialties != null) updateData['specialties'] = specialties;
       if (pricePerMinute != null) updateData['pricePerMinute'] = pricePerMinute;
+      if (imageUrl != null) updateData['imageUrl'] = imageUrl;
 
-      final success = await _mediumService.updateMediumProfile(currentMediumId!, updateData);
+      await _firebaseService.updateMediumData(currentMediumId!, updateData);
 
-      if (success) {
-        await loadProfile(); // Recarregar perfil atualizado
-        Get.snackbar(
-          'Perfil Atualizado',
-          'Suas informações foram atualizadas com sucesso',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
-      } else {
-        Get.snackbar('Erro', 'Não foi possível atualizar o perfil');
+      // Atualizar o modelo local
+      if (mediumProfile.value != null) {
+        final currentData = mediumProfile.value!.toMap();
+        currentData.addAll(updateData);
+
+        // Garantir que updatedAt seja DateTime
+        if (currentData['updatedAt'] is String) {
+          currentData['updatedAt'] = DateTime.parse(currentData['updatedAt']);
+        }
+
+        final sanitizedData = _sanitizeTimestamps(currentData);
+        mediumProfile.value = MediumModel.fromMap(sanitizedData, currentMediumId!);
       }
 
-      return success;
+      // Sincronizar com MediumAdminController
+      final adminController = _adminController;
+      if (adminController != null) {
+        await adminController.loadMediumProfile();
+      }
+
+      Get.snackbar(
+        'Perfil Atualizado',
+        'Suas informações foram atualizadas com sucesso',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+
+      debugPrint('✅ Perfil atualizado com sucesso');
+      return true;
     } catch (e) {
       debugPrint('❌ Erro ao atualizar perfil: $e');
       Get.snackbar('Erro', 'Erro ao atualizar perfil: $e');
@@ -160,34 +272,29 @@ class ProfileController extends GetxController {
       debugPrint('=== _uploadProfileImage() ===');
       isUploadingImage.value = true;
 
-      // Upload da imagem
-      final imageUrl = await _firebaseService.uploadProfileImage(
-        currentMediumId!,
-        selectedImage.value!,
-      );
+      final fileName = 'profile_${currentMediumId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final ref = _firebaseService.storage.ref().child('medium_profiles').child(fileName);
 
-      // Atualizar perfil com nova URL da imagem
-      final success = await _mediumService.updateMediumProfile(currentMediumId!, {
-        'imageUrl': imageUrl,
-      });
+      final uploadTask = ref.putFile(selectedImage.value!);
+      final snapshot = await uploadTask;
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+
+      final success = await updateProfile(imageUrl: downloadUrl);
 
       if (success) {
-        await loadProfile(); // Recarregar perfil
+        selectedImage.value = null;
         Get.snackbar(
           'Foto Atualizada',
           'Sua foto de perfil foi atualizada com sucesso',
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
-      } else {
-        Get.snackbar('Erro', 'Não foi possível atualizar a foto');
       }
     } catch (e) {
       debugPrint('❌ Erro ao fazer upload da imagem: $e');
       Get.snackbar('Erro', 'Erro ao fazer upload da imagem');
     } finally {
       isUploadingImage.value = false;
-      selectedImage.value = null;
     }
   }
 
@@ -198,75 +305,31 @@ class ProfileController extends GetxController {
       debugPrint('=== removeProfileImage() ===');
       isUploadingImage.value = true;
 
-      // Deletar imagem anterior se existir
-      if (mediumProfile.value?.imageUrl != null) {
-        await _firebaseService.deleteImage(mediumProfile.value!.imageUrl!);
+      if (mediumProfile.value?.imageUrl != null && mediumProfile.value!.imageUrl!.isNotEmpty) {
+        try {
+          final ref = _firebaseService.storage.refFromURL(mediumProfile.value!.imageUrl!);
+          await ref.delete();
+          debugPrint('✅ Imagem removida do Storage');
+        } catch (e) {
+          debugPrint('⚠️ Erro ao remover imagem do Storage: $e');
+        }
       }
 
-      // Atualizar perfil removendo URL da imagem
-      final success = await _mediumService.updateMediumProfile(currentMediumId!, {
-        'imageUrl': null,
-      });
+      final success = await updateProfile(imageUrl: '');
 
       if (success) {
-        await loadProfile(); // Recarregar perfil
         Get.snackbar(
           'Foto Removida',
           'Sua foto de perfil foi removida',
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
-      } else {
-        Get.snackbar('Erro', 'Não foi possível remover a foto');
       }
     } catch (e) {
       debugPrint('❌ Erro ao remover imagem: $e');
       Get.snackbar('Erro', 'Erro ao remover imagem');
     } finally {
       isUploadingImage.value = false;
-    }
-  }
-
-  Future<bool> toggleAvailabilityStatus() async {
-    if (currentMediumId == null || mediumProfile.value == null) return false;
-
-    try {
-      debugPrint('=== toggleAvailabilityStatus() ===');
-
-      final currentStatus = mediumProfile.value!.isAvailable;
-      final newStatus = !currentStatus;
-
-      final success = await _mediumService.updateMediumProfile(currentMediumId!, {
-        'isAvailable': newStatus,
-      });
-
-      if (success) {
-        mediumProfile.value = mediumProfile.value!.copyWith(isAvailable: newStatus);
-        Get.snackbar(
-          'Status Atualizado',
-          newStatus ? 'Você está disponível para consultas' : 'Você está indisponível',
-          backgroundColor: newStatus ? Colors.green : Colors.orange,
-          colorText: Colors.white,
-        );
-      }
-
-      return success;
-    } catch (e) {
-      debugPrint('❌ Erro ao alterar status: $e');
-      Get.snackbar('Erro', 'Erro ao alterar status de disponibilidade');
-      return false;
-    }
-  }
-
-  Future<bool> updatePassword(String currentPassword, String newPassword) async {
-    try {
-      debugPrint('=== updatePassword() ===');
-
-      final success = await _authController.updatePassword(currentPassword, newPassword);
-      return success;
-    } catch (e) {
-      debugPrint('❌ Erro ao atualizar senha: $e');
-      return false;
     }
   }
 
@@ -297,239 +360,132 @@ class ProfileController extends GetxController {
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
+                  child: _buildImageOption(
+                    icon: Icons.camera_alt,
+                    label: 'Câmera',
+                    onTap: () {
                       Get.back();
                       pickImageFromCamera();
                     },
-                    icon: const Icon(Icons.camera_alt, color: Colors.white),
-                    label: const Text(
-                      'Câmera',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6C63FF),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
+                  child: _buildImageOption(
+                    icon: Icons.photo_library,
+                    label: 'Galeria',
+                    onTap: () {
                       Get.back();
                       pickImageFromGallery();
                     },
-                    icon: const Icon(Icons.photo_library, color: Colors.white),
-                    label: const Text(
-                      'Galeria',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF8E78FF),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            if (mediumProfile.value?.imageUrl != null)
-              OutlinedButton.icon(
-                onPressed: () {
-                  Get.back();
-                  removeProfileImage();
-                },
-                icon: const Icon(Icons.delete, color: Colors.red),
-                label: const Text(
-                  'Remover Foto',
-                  style: TextStyle(color: Colors.red),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.red),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+            if (mediumProfile.value?.imageUrl != null && mediumProfile.value!.imageUrl!.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: () {
+                    Get.back();
+                    removeProfileImage();
+                  },
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  label: const Text(
+                    'Remover Foto',
+                    style: TextStyle(color: Colors.red),
+                  ),
                 ),
               ),
+            ],
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Get.back(),
+                child: const Text(
+                  'Cancelar',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  String get profileCompletionPercentage {
-    if (mediumProfile.value == null) return '0%';
-
-    final profile = mediumProfile.value!;
-    int completedFields = 0;
-    int totalFields = 8;
-
-    if (profile.name.isNotEmpty) completedFields++;
-    if (profile.phone.isNotEmpty) completedFields++;
-    if (profile.bio.isNotEmpty) completedFields++;
-    if (profile.experience.isNotEmpty) completedFields++;
-    if (profile.specialties.isNotEmpty) completedFields++;
-    if (profile.pricePerMinute > 0) completedFields++;
-    if (profile.imageUrl != null) completedFields++;
-    if (profile.isActive) completedFields++;
-
-    final percentage = (completedFields / totalFields * 100).round();
-    return '$percentage%';
-  }
-
-  Color get profileCompletionColor {
-    final percentage = int.tryParse(profileCompletionPercentage.replaceAll('%', '')) ?? 0;
-
-    if (percentage >= 80) return Colors.green;
-    if (percentage >= 60) return Colors.orange;
-    return Colors.red;
-  }
-
-  List<String> get incompleteFields {
-    if (mediumProfile.value == null) return [];
-
-    final profile = mediumProfile.value!;
-    final List<String> incomplete = [];
-
-    if (profile.name.isEmpty) incomplete.add('Nome completo');
-    if (profile.phone.isEmpty) incomplete.add('Telefone');
-    if (profile.bio.isEmpty) incomplete.add('Biografia');
-    if (profile.experience.isEmpty) incomplete.add('Experiência profissional');
-    if (profile.specialties.isEmpty) incomplete.add('Especialidades');
-    if (profile.pricePerMinute <= 0) incomplete.add('Preço por minuto');
-    if (profile.imageUrl == null) incomplete.add('Foto de perfil');
-
-    return incomplete;
-  }
-
-  bool get isProfileComplete {
-    return incompleteFields.isEmpty && (mediumProfile.value?.isActive ?? false);
-  }
-
-  String get statusText {
-    final profile = mediumProfile.value;
-    if (profile == null) return 'Carregando...';
-
-    if (!profile.isActive) return 'Conta Inativa';
-    if (profile.isOnline) return 'Online';
-    if (profile.isAvailable) return 'Disponível';
-    return 'Ocupado';
-  }
-
-  Color get statusColor {
-    final profile = mediumProfile.value;
-    if (profile == null) return Colors.grey;
-
-    if (!profile.isActive) return Colors.red;
-    if (profile.isOnline) return Colors.green;
-    if (profile.isAvailable) return Colors.blue;
-    return Colors.orange;
-  }
-
-  // Métodos adicionais para gestão de especialidades
-  void addSpecialty(String specialty) {
-    if (!availableSpecialties.contains(specialty)) {
-      availableSpecialties.add(specialty);
-    }
-  }
-
-  void removeSpecialty(String specialty) {
-    availableSpecialties.remove(specialty);
-  }
-
-  // Método para validar dados do perfil
-  Map<String, String?> validateProfileData({
-    String? name,
-    String? phone,
-    String? bio,
-    List<String>? specialties,
-    double? pricePerMinute,
+  Widget _buildImageOption({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
   }) {
-    final errors = <String, String?>{};
-
-    if (name != null && name.trim().length < 3) {
-      errors['name'] = 'Nome deve ter pelo menos 3 caracteres';
-    }
-
-    if (phone != null && phone.trim().length < 10) {
-      errors['phone'] = 'Telefone deve ter pelo menos 10 dígitos';
-    }
-
-    if (bio != null && bio.trim().length < 20) {
-      errors['bio'] = 'Biografia deve ter pelo menos 20 caracteres';
-    }
-
-    if (specialties != null && specialties.isEmpty) {
-      errors['specialties'] = 'Selecione pelo menos uma especialidade';
-    }
-
-    if (pricePerMinute != null && pricePerMinute <= 0) {
-      errors['pricePerMinute'] = 'Preço deve ser maior que zero';
-    }
-
-    return errors;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: Colors.white,
+              size: 32,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
-  // Método para obter sugestões de melhoria do perfil
-  List<String> getProfileImprovementSuggestions() {
-    final suggestions = <String>[];
-    final profile = mediumProfile.value;
-
-    if (profile == null) return suggestions;
-
-    if (profile.imageUrl == null) {
-      suggestions.add('Adicione uma foto de perfil profissional');
+  bool validateProfileData({
+    required String name,
+    required String bio,
+    required List<String> specialties,
+    required double pricePerMinute,
+  }) {
+    if (name.trim().isEmpty) {
+      Get.snackbar('Erro', 'Nome é obrigatório');
+      return false;
     }
 
-    if (profile.bio.length < 100) {
-      suggestions.add('Expanda sua biografia com mais detalhes sobre sua experiência');
+    if (name.trim().length < 2) {
+      Get.snackbar('Erro', 'Nome deve ter pelo menos 2 caracteres');
+      return false;
     }
 
-    if (profile.specialties.length < 3) {
-      suggestions.add('Adicione mais especialidades para atrair mais clientes');
+    if (bio.trim().length < 10) {
+      Get.snackbar('Erro', 'Biografia deve ter pelo menos 10 caracteres');
+      return false;
     }
 
-    if (profile.experience.isEmpty) {
-      suggestions.add('Adicione informações sobre sua experiência profissional');
+    if (specialties.isEmpty) {
+      Get.snackbar('Erro', 'Selecione pelo menos uma especialidade');
+      return false;
     }
 
-    if (profile.rating < 4.0) {
-      suggestions.add('Melhore a qualidade do atendimento para aumentar sua avaliação');
+    if (pricePerMinute < 1.0 || pricePerMinute > 100.0) {
+      Get.snackbar('Erro', 'Preço deve estar entre R\$ 1,00 e R\$ 100,00 por minuto');
+      return false;
     }
 
-    return suggestions;
-  }
-
-  // Método para calcular score do perfil
-  double get profileScore {
-    if (mediumProfile.value == null) return 0.0;
-
-    final profile = mediumProfile.value!;
-    double score = 0.0;
-
-    // Dados básicos (40%)
-    if (profile.name.isNotEmpty) score += 10;
-    if (profile.phone.isNotEmpty) score += 10;
-    if (profile.bio.length >= 50) score += 10;
-    if (profile.specialties.isNotEmpty) score += 10;
-
-    // Informações profissionais (30%)
-    if (profile.experience.isNotEmpty) score += 10;
-    if (profile.pricePerMinute > 0) score += 10;
-    if (profile.imageUrl != null) score += 10;
-
-    // Status e atividade (30%)
-    if (profile.isActive) score += 10;
-    if (profile.isAvailable) score += 10;
-    if (profile.totalAppointments > 0) score += 10;
-
-    return score;
-  }
-
-  String get profileScoreText {
-    final score = profileScore;
-    if (score >= 90) return 'Excelente';
-    if (score >= 70) return 'Bom';
-    if (score >= 50) return 'Regular';
-    return 'Precisa melhorar';
+    return true;
   }
 }

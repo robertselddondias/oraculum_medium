@@ -68,6 +68,16 @@ class MediumAdminController extends GetxController {
   final acceptsPix = true.obs;
   final commissionRate = 0.15.obs;
 
+  final todayAppointments = 0.obs;
+  final weeklyAppointments = 0.obs;
+  final monthlyAppointments = 0.obs;
+  final pendingAppointments = 0.obs;
+  final activeClients = 0.obs;
+  final newClients = 0.obs;
+
+  final performanceMetrics = <String, dynamic>{}.obs;
+  final recentActivity = <Map<String, dynamic>>[].obs;
+
   String get currentMediumId => _authController.currentUser.value?.uid ?? '';
 
   @override
@@ -101,6 +111,8 @@ class MediumAdminController extends GetxController {
     averageRating.value = 0.0;
     isOnline.value = false;
     isAvailable.value = false;
+    performanceMetrics.clear();
+    recentActivity.clear();
   }
 
   Future<void> loadMediumProfile() async {
@@ -159,6 +171,8 @@ class MediumAdminController extends GetxController {
         'languages': ['Português'],
         'certificates': <String>[],
         'socialMedia': <String, String>{},
+        'createdAt': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
       };
 
       await _firebaseService.createMediumData(currentMediumId, mediumData);
@@ -175,6 +189,10 @@ class MediumAdminController extends GetxController {
     isAvailable.value = mediumData['isAvailable'] ?? false;
     currentStatus.value = mediumData['status'] ?? 'offline';
     customStatusMessage.value = mediumData['statusMessage'] ?? '';
+
+    totalAppointments.value = mediumData['totalAppointments'] ?? 0;
+    averageRating.value = (mediumData['rating'] ?? 0.0).toDouble();
+    totalReviews.value = mediumData['totalReviews'] ?? 0;
   }
 
   Future<void> _loadMediumSettings() async {
@@ -210,7 +228,8 @@ class MediumAdminController extends GetxController {
         acceptsPix.value = settingsData['acceptsPix'] ?? true;
 
         settings.value = settingsData;
-        debugPrint('✅ Configurações carregadas');
+
+        debugPrint('✅ Configurações do médium carregadas');
       } else {
         await _createDefaultSettings();
       }
@@ -235,6 +254,8 @@ class MediumAdminController extends GetxController {
         'acceptsCredits': true,
         'acceptsCards': true,
         'acceptsPix': true,
+        'createdAt': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
       };
 
       await _firebaseService.createMediumSettings(currentMediumId, defaultSettings);
@@ -248,60 +269,59 @@ class MediumAdminController extends GetxController {
 
   Future<void> _loadPerformanceData() async {
     try {
-      final appointments = await _firebaseService.getMediumAppointments(currentMediumId);
-      totalAppointments.value = appointments.docs.length;
+      final stats = await _mediumService.getMediumStats(currentMediumId);
 
-      int completed = 0;
-      int canceled = 0;
+      totalEarnings.value = stats.totalEarnings;
+      monthlyEarnings.value = stats.monthlyEarnings;
+      completedAppointments.value = stats.completedAppointments;
+      totalAppointments.value = stats.totalAppointments;
+      averageRating.value = stats.averageRating;
 
-      for (final doc in appointments.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        final status = data['status'] as String;
+      weeklyAppointments.value = stats.weeklyAppointments;
+      monthlyAppointments.value = stats.monthlyAppointments;
 
-        if (status == 'completed') completed++;
-        if (status == 'canceled') canceled++;
-      }
-
-      completedAppointments.value = completed;
-      canceledAppointments.value = canceled;
-
-      final earnings = await _firebaseService.getMediumEarnings(currentMediumId);
-      double total = 0.0;
-
-      for (final doc in earnings.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        total += (data['amount'] ?? 0.0).toDouble();
-      }
-
-      totalEarnings.value = total;
+      final appointments = await _mediumService.getMediumAppointments(currentMediumId);
 
       final now = DateTime.now();
-      final startOfMonth = DateTime(now.year, now.month, 1);
-      final monthlyEarningsSnapshot = await _firebaseService.getMediumEarningsInPeriod(
-        currentMediumId,
-        startOfMonth,
-        now,
-      );
+      final today = DateTime(now.year, now.month, now.day);
 
-      double monthlyTotal = 0.0;
-      for (final doc in monthlyEarningsSnapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        monthlyTotal += (data['amount'] ?? 0.0).toDouble();
-      }
+      todayAppointments.value = appointments.where((apt) =>
+      apt.dateTime.year == today.year &&
+          apt.dateTime.month == today.month &&
+          apt.dateTime.day == today.day
+      ).length;
 
-      monthlyEarnings.value = monthlyTotal;
+      pendingAppointments.value = appointments.where((apt) =>
+      apt.status == 'pending'
+      ).length;
 
-      final reviews = await _firebaseService.getMediumReviews(currentMediumId);
-      totalReviews.value = reviews.docs.length;
+      canceledAppointments.value = appointments.where((apt) =>
+      apt.status == 'canceled'
+      ).length;
 
-      if (reviews.docs.isNotEmpty) {
-        double totalRating = 0.0;
-        for (final doc in reviews.docs) {
-          final data = doc.data() as Map<String, dynamic>;
-          totalRating += (data['rating'] ?? 0.0).toDouble();
-        }
-        averageRating.value = totalRating / reviews.docs.length;
-      }
+      final uniqueClients = appointments.map((apt) => apt.userId).toSet();
+      activeClients.value = uniqueClients.length;
+
+      final lastMonth = now.subtract(const Duration(days: 30));
+      newClients.value = appointments.where((apt) =>
+          apt.dateTime.isAfter(lastMonth)
+      ).map((apt) => apt.userId).toSet().length;
+
+      performanceMetrics.value = {
+        'totalAppointments': totalAppointments.value,
+        'completedAppointments': completedAppointments.value,
+        'canceledAppointments': canceledAppointments.value,
+        'totalEarnings': totalEarnings.value,
+        'monthlyEarnings': monthlyEarnings.value,
+        'averageRating': averageRating.value,
+        'todayAppointments': todayAppointments.value,
+        'weeklyAppointments': weeklyAppointments.value,
+        'monthlyAppointments': monthlyAppointments.value,
+        'pendingAppointments': pendingAppointments.value,
+        'activeClients': activeClients.value,
+        'newClients': newClients.value,
+        'responseTime': stats.responseTime,
+      };
 
       debugPrint('✅ Dados de performance carregados');
     } catch (e) {
@@ -309,32 +329,153 @@ class MediumAdminController extends GetxController {
     }
   }
 
-  Future<void> refreshData() async {
-    isRefreshing.value = true;
-    await loadMediumProfile();
-    isRefreshing.value = false;
+  AvailabilitySettingsModel getCurrentSettings() {
+    final sanitizedAvailability = Map<String, dynamic>.from(availability.value);
+
+    if (sanitizedAvailability['blockedDates'] != null) {
+      final blockedDates = sanitizedAvailability['blockedDates'] as List;
+      sanitizedAvailability['blockedDates'] = blockedDates.map((date) {
+        if (date is DateTime) {
+          return date.toIso8601String();
+        }
+        return date.toString();
+      }).toList();
+    }
+
+    return AvailabilitySettingsModel(
+      autoAcceptAppointments: autoAcceptAppointments.value,
+      bufferTime: bufferTime.value,
+      maxDailyAppointments: maxDailyAppointments.value,
+      consultationDurations: consultationDurations.value,
+      availability: sanitizedAvailability,
+      isAvailable: isAvailable.value,
+      notificationSettings: notificationSettings.value,
+      minimumSessionPrice: minimumSessionPrice.value,
+      acceptsCredits: acceptsCredits.value,
+      acceptsCards: acceptsCards.value,
+      acceptsPix: acceptsPix.value,
+      minAdvanceBooking: minAdvanceBooking.value,
+      maxAdvanceBooking: maxAdvanceBooking.value,
+      allowSameDayBooking: allowSameDayBooking.value,
+      updatedAt: DateTime.now(),
+    );
   }
 
-  Future<bool> updateMediumProfile(Map<String, dynamic> profileData) async {
+  void updateFromSettings(AvailabilitySettingsModel settings) {
+    autoAcceptAppointments.value = settings.autoAcceptAppointments;
+    bufferTime.value = settings.bufferTime;
+    maxDailyAppointments.value = settings.maxDailyAppointments;
+    consultationDurations.value = settings.consultationDurations;
+    availability.value = settings.availability;
+    isAvailable.value = settings.isAvailable;
+    notificationSettings.value = settings.notificationSettings;
+    minimumSessionPrice.value = settings.minimumSessionPrice;
+    acceptsCredits.value = settings.acceptsCredits;
+    acceptsCards.value = settings.acceptsCards;
+    acceptsPix.value = settings.acceptsPix;
+    minAdvanceBooking.value = settings.minAdvanceBooking;
+    maxAdvanceBooking.value = settings.maxAdvanceBooking;
+    allowSameDayBooking.value = settings.allowSameDayBooking;
+
+    availabilitySettings.value = settings;
+  }
+
+  Future<bool> saveAvailabilitySettings() async {
     try {
       isSaving.value = true;
 
-      await _firebaseService.updateMediumData(currentMediumId, profileData);
+      final settings = getCurrentSettings();
 
-      if (mediumProfile.value != null) {
-        final currentData = mediumProfile.value!.toMap();
-        currentData.addAll(profileData);
-        mediumProfile.value = MediumModel.fromMap(currentData, currentMediumId);
+      if (!settings.validate()) {
+        Get.snackbar('Erro', 'Configurações inválidas. Verifique os dados inseridos.');
+        return false;
       }
 
-      debugPrint('✅ Perfil atualizado com sucesso');
+      await _firebaseService.updateMediumAvailability(currentMediumId, settings.toMap());
+      await _firebaseService.updateMediumSettings(currentMediumId, settings.toMap());
+      await _firebaseService.updateMediumData(currentMediumId, {
+        'isAvailable': settings.isAvailable,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+
+      availabilitySettings.value = settings;
+
+      debugPrint('✅ Configurações de disponibilidade salvas');
+      Get.snackbar('Sucesso', 'Configurações salvas com sucesso!');
       return true;
     } catch (e) {
-      debugPrint('❌ Erro ao atualizar perfil: $e');
-      errorMessage.value = 'Erro ao atualizar perfil: $e';
+      debugPrint('❌ Erro ao salvar configurações: $e');
+      Get.snackbar('Erro', 'Erro ao salvar configurações: $e');
       return false;
     } finally {
       isSaving.value = false;
+    }
+  }
+
+  Map<String, dynamic> _sanitizeFirestoreData(Map<String, dynamic> data) {
+    final sanitized = Map<String, dynamic>.from(data);
+
+    if (sanitized['updatedAt'] != null) {
+      final updatedAt = sanitized['updatedAt'];
+      if (updatedAt is String) {
+        sanitized['updatedAt'] = DateTime.parse(updatedAt);
+      } else if (updatedAt.runtimeType.toString().contains('Timestamp')) {
+        sanitized['updatedAt'] = updatedAt.toDate();
+      } else if (updatedAt is! DateTime) {
+        sanitized['updatedAt'] = DateTime.now();
+      }
+    } else {
+      sanitized['updatedAt'] = DateTime.now();
+    }
+
+    if (sanitized['blockedDates'] != null) {
+      final blockedDates = sanitized['blockedDates'] as List?;
+      if (blockedDates != null) {
+        sanitized['blockedDates'] = blockedDates.map((date) {
+          if (date is String) {
+            return DateTime.parse(date);
+          } else if (date.runtimeType.toString().contains('Timestamp')) {
+            return date.toDate();
+          } else if (date is DateTime) {
+            return date;
+          }
+          return DateTime.now();
+        }).toList();
+      }
+    }
+
+    return sanitized;
+  }
+
+  Future<void> loadAvailabilitySettings() async {
+    try {
+      isLoading.value = true;
+
+      final availabilityDoc = await _firebaseService.getMediumAvailability(currentMediumId);
+      final settingsDoc = await _firebaseService.getMediumSettings(currentMediumId);
+
+      Map<String, dynamic> combinedData = {};
+
+      if (availabilityDoc.exists) {
+        final availabilityData = _sanitizeFirestoreData(availabilityDoc.data() as Map<String, dynamic>);
+        combinedData.addAll(availabilityData);
+      }
+
+      if (settingsDoc.exists) {
+        final settingsData = _sanitizeFirestoreData(settingsDoc.data() as Map<String, dynamic>);
+        combinedData.addAll(settingsData);
+      }
+
+      if (combinedData.isNotEmpty) {
+        final settings = AvailabilitySettingsModel.fromMap(combinedData);
+        updateFromSettings(settings);
+      }
+
+      debugPrint('✅ Configurações de disponibilidade carregadas');
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar configurações: $e');
+    } finally {
+      isLoading.value = false;
     }
   }
 
@@ -343,17 +484,208 @@ class MediumAdminController extends GetxController {
       isSaving.value = true;
 
       await _firebaseService.updateMediumSettings(currentMediumId, newSettings);
-      settings.value = newSettings;
+      await _firebaseService.updateMediumData(currentMediumId, {
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
 
-      debugPrint('✅ Configurações atualizadas com sucesso');
+      settings.addAll(newSettings);
+
+      debugPrint('✅ Configurações atualizadas');
+      Get.snackbar('Sucesso', 'Configurações atualizadas com sucesso!');
       return true;
     } catch (e) {
       debugPrint('❌ Erro ao atualizar configurações: $e');
-      errorMessage.value = 'Erro ao atualizar configurações: $e';
+      Get.snackbar('Erro', 'Erro ao atualizar configurações: $e');
       return false;
     } finally {
       isSaving.value = false;
     }
+  }
+
+  Future<bool> updateProfile(Map<String, dynamic> profileData) async {
+    try {
+      isSaving.value = true;
+
+      profileData['updatedAt'] = DateTime.now().toIso8601String();
+
+      await _firebaseService.updateMediumData(currentMediumId, profileData);
+
+      if (mediumProfile.value != null) {
+        final updatedData = {
+          ...mediumProfile.value!.toMap(),
+          ...profileData,
+        };
+        mediumProfile.value = MediumModel.fromMap(updatedData, currentMediumId);
+      }
+
+      debugPrint('✅ Perfil atualizado');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Erro ao atualizar perfil: $e');
+      return false;
+    } finally {
+      isSaving.value = false;
+    }
+  }
+
+  Future<void> toggleAvailability() async {
+    try {
+      final newStatus = !isAvailable.value;
+
+      await _firebaseService.updateMediumData(currentMediumId, {
+        'isAvailable': newStatus,
+        'status': newStatus ? 'available' : 'offline',
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+
+      isAvailable.value = newStatus;
+      currentStatus.value = newStatus ? 'available' : 'offline';
+
+      debugPrint('✅ Status de disponibilidade alterado para: $newStatus');
+    } catch (e) {
+      debugPrint('❌ Erro ao alterar disponibilidade: $e');
+      Get.snackbar('Erro', 'Erro ao alterar status de disponibilidade');
+    }
+  }
+
+  Future<void> updateStatus(String status, [String? message]) async {
+    try {
+      final updateData = {
+        'status': status,
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
+
+      if (message != null) {
+        updateData['statusMessage'] = message;
+      }
+
+      await _firebaseService.updateMediumData(currentMediumId, updateData);
+
+      currentStatus.value = status;
+      if (message != null) {
+        customStatusMessage.value = message;
+      }
+
+      debugPrint('✅ Status atualizado para: $status');
+    } catch (e) {
+      debugPrint('❌ Erro ao atualizar status: $e');
+      Get.snackbar('Erro', 'Erro ao atualizar status');
+    }
+  }
+
+  Future<void> refreshData() async {
+    try {
+      isRefreshing.value = true;
+      await loadMediumProfile();
+      await _loadPerformanceData();
+    } catch (e) {
+      debugPrint('❌ Erro ao atualizar dados: $e');
+    } finally {
+      isRefreshing.value = false;
+    }
+  }
+
+  Future<void> blockDate(DateTime date) async {
+    try {
+      final blockedDates = List<DateTime>.from(availability['blockedDates'] ?? []);
+
+      if (!blockedDates.any((d) =>
+      d.year == date.year && d.month == date.month && d.day == date.day)) {
+        blockedDates.add(date);
+
+        availability['blockedDates'] = blockedDates;
+
+        await _firebaseService.updateMediumAvailability(currentMediumId, {
+          'blockedDates': blockedDates.map((d) => d.toIso8601String()).toList(),
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+
+        debugPrint('✅ Data bloqueada: ${date.toString()}');
+        Get.snackbar('Sucesso', 'Data bloqueada com sucesso');
+      }
+    } catch (e) {
+      debugPrint('❌ Erro ao bloquear data: $e');
+      Get.snackbar('Erro', 'Erro ao bloquear data');
+    }
+  }
+
+  Future<void> unblockDate(DateTime date) async {
+    try {
+      final blockedDates = List<DateTime>.from(availability['blockedDates'] ?? []);
+
+      blockedDates.removeWhere((d) =>
+      d.year == date.year && d.month == date.month && d.day == date.day);
+
+      availability['blockedDates'] = blockedDates;
+
+      await _firebaseService.updateMediumAvailability(currentMediumId, {
+        'blockedDates': blockedDates.map((d) => d.toIso8601String()).toList(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+
+      debugPrint('✅ Data desbloqueada: ${date.toString()}');
+      Get.snackbar('Sucesso', 'Data desbloqueada com sucesso');
+    } catch (e) {
+      debugPrint('❌ Erro ao desbloquear data: $e');
+      Get.snackbar('Erro', 'Erro ao desbloquear data');
+    }
+  }
+
+  void updateDayAvailability(String day, Map<String, dynamic> dayData) {
+    availability[day] = dayData;
+
+    saveAvailabilitySettings();
+  }
+
+  void addBreak(String day, Map<String, String> breakData) {
+    final dayAvailability = Map<String, dynamic>.from(availability[day] ?? {});
+    final breaks = List<Map<String, String>>.from(dayAvailability['breaks'] ?? []);
+
+    breaks.add(breakData);
+    dayAvailability['breaks'] = breaks;
+    availability[day] = dayAvailability;
+
+    saveAvailabilitySettings();
+  }
+
+  void removeBreak(String day, int breakIndex) {
+    final dayAvailability = Map<String, dynamic>.from(availability[day] ?? {});
+    final breaks = List<Map<String, String>>.from(dayAvailability['breaks'] ?? []);
+
+    if (breakIndex >= 0 && breakIndex < breaks.length) {
+      breaks.removeAt(breakIndex);
+      dayAvailability['breaks'] = breaks;
+      availability[day] = dayAvailability;
+
+      saveAvailabilitySettings();
+    }
+  }
+
+  void updateConsultationDurations(List<int> durations) {
+    consultationDurations.value = durations;
+  }
+
+  void addConsultationDuration(int duration) {
+    if (!consultationDurations.contains(duration)) {
+      consultationDurations.add(duration);
+      consultationDurations.sort();
+    }
+  }
+
+  void removeConsultationDuration(int duration) {
+    consultationDurations.remove(duration);
+  }
+
+  void updatePaymentSettings({
+    bool? acceptsCredits,
+    bool? acceptsCards,
+    bool? acceptsPix,
+    double? minimumPrice,
+  }) {
+    if (acceptsCredits != null) this.acceptsCredits.value = acceptsCredits;
+    if (acceptsCards != null) this.acceptsCards.value = acceptsCards;
+    if (acceptsPix != null) this.acceptsPix.value = acceptsPix;
+    if (minimumPrice != null) minimumSessionPrice.value = minimumPrice;
   }
 
   bool getNotificationSetting(String key) {
@@ -392,10 +724,6 @@ class MediumAdminController extends GetxController {
     return consultationDurations.value;
   }
 
-  void updateConsultationDurations(List<int> durations) {
-    consultationDurations.value = durations;
-  }
-
   int getDefaultDuration() {
     return consultationDurations.isNotEmpty ? consultationDurations.first : 30;
   }
@@ -404,10 +732,6 @@ class MediumAdminController extends GetxController {
     if (!consultationDurations.contains(duration)) {
       consultationDurations.add(duration);
     }
-  }
-
-  void updateDayAvailability(String day, Map<String, dynamic> dayData) {
-    availability[day] = dayData;
   }
 
   bool getDayAvailability(String day) {
@@ -448,13 +772,17 @@ class MediumAdminController extends GetxController {
     try {
       isSaving.value = true;
 
+      availabilityData['updatedAt'] = DateTime.now().toIso8601String();
+
       await _firebaseService.updateMediumAvailability(currentMediumId, availabilityData);
       availability.value = availabilityData;
 
       debugPrint('✅ Disponibilidade atualizada');
+      Get.snackbar('Sucesso', 'Disponibilidade atualizada com sucesso!');
       return true;
     } catch (e) {
       debugPrint('❌ Erro ao atualizar disponibilidade: $e');
+      Get.snackbar('Erro', 'Erro ao atualizar disponibilidade: $e');
       return false;
     } finally {
       isSaving.value = false;
@@ -482,20 +810,33 @@ class MediumAdminController extends GetxController {
   Future<void> toggleAvailabilityStatus() async {
     try {
       final newStatus = !isAvailable.value;
-      isAvailable.value = newStatus;
 
-      await _firebaseService.updateMediumAvailabilityStatus(currentMediumId, newStatus);
+      await _firebaseService.updateMediumData(currentMediumId, {
+        'isAvailable': newStatus,
+        'status': newStatus ? 'available' : 'offline',
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+
+      isAvailable.value = newStatus;
+      currentStatus.value = newStatus ? 'available' : 'offline';
 
       if (mediumProfile.value != null) {
         final updatedData = mediumProfile.value!.toMap();
         updatedData['isAvailable'] = newStatus;
+        updatedData['status'] = newStatus ? 'available' : 'offline';
         mediumProfile.value = MediumModel.fromMap(updatedData, currentMediumId);
       }
 
-      debugPrint('✅ Status de disponibilidade atualizado: $newStatus');
+      debugPrint('✅ Status de disponibilidade alterado para: $newStatus');
+      Get.snackbar(
+        'Status Atualizado',
+        newStatus ? 'Você está agora disponível' : 'Você está agora indisponível',
+        backgroundColor: newStatus ? Colors.green : Colors.orange,
+        colorText: Colors.white,
+      );
     } catch (e) {
-      debugPrint('❌ Erro ao atualizar disponibilidade: $e');
-      isAvailable.value = !isAvailable.value;
+      debugPrint('❌ Erro ao alterar disponibilidade: $e');
+      Get.snackbar('Erro', 'Erro ao alterar status de disponibilidade');
     }
   }
 
@@ -508,7 +849,8 @@ class MediumAdminController extends GetxController {
       await _firebaseService.updateMediumData(currentMediumId, {
         'status': status,
         'statusMessage': message ?? '',
-        'lastSeen': DateTime.now(),
+        'lastSeen': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
       });
 
       debugPrint('✅ Status online atualizado: $status');
@@ -574,102 +916,38 @@ class MediumAdminController extends GetxController {
         mediumProfile.value?.isActive == true;
   }
 
-  AvailabilitySettingsModel getCurrentSettings() {
-    return AvailabilitySettingsModel(
-      autoAcceptAppointments: autoAcceptAppointments.value,
-      bufferTime: bufferTime.value,
-      maxDailyAppointments: maxDailyAppointments.value,
-      consultationDurations: consultationDurations.value,
-      availability: availability.value,
-      isAvailable: isAvailable.value,
-      notificationSettings: notificationSettings.value,
-      minimumSessionPrice: minimumSessionPrice.value,
-      acceptsCredits: acceptsCredits.value,
-      acceptsCards: acceptsCards.value,
-      acceptsPix: acceptsPix.value,
-      minAdvanceBooking: minAdvanceBooking.value,
-      maxAdvanceBooking: maxAdvanceBooking.value,
-      allowSameDayBooking: allowSameDayBooking.value,
-      updatedAt: DateTime.now(),
-    );
-  }
-
-  void updateFromSettings(AvailabilitySettingsModel settings) {
-    autoAcceptAppointments.value = settings.autoAcceptAppointments;
-    bufferTime.value = settings.bufferTime;
-    maxDailyAppointments.value = settings.maxDailyAppointments;
-    consultationDurations.value = settings.consultationDurations;
-    availability.value = settings.availability;
-    isAvailable.value = settings.isAvailable;
-    notificationSettings.value = settings.notificationSettings;
-    minimumSessionPrice.value = settings.minimumSessionPrice;
-    acceptsCredits.value = settings.acceptsCredits;
-    acceptsCards.value = settings.acceptsCards;
-    acceptsPix.value = settings.acceptsPix;
-    minAdvanceBooking.value = settings.minAdvanceBooking;
-    maxAdvanceBooking.value = settings.maxAdvanceBooking;
-    allowSameDayBooking.value = settings.allowSameDayBooking;
-
-    availabilitySettings.value = settings;
-  }
-
-  Future<bool> saveAvailabilitySettings() async {
+  Future<bool> updateMediumProfile(Map<String, dynamic> profileData) async {
     try {
       isSaving.value = true;
 
-      final settings = getCurrentSettings();
+      await _firebaseService.updateMediumData(currentMediumId, profileData);
 
-      if (!settings.validate()) {
-        Get.snackbar('Erro', 'Configurações inválidas. Verifique os dados inseridos.');
-        return false;
+      if (mediumProfile.value != null) {
+        final currentData = mediumProfile.value!.toMap();
+        currentData.addAll(profileData);
+        mediumProfile.value = MediumModel.fromMap(currentData, currentMediumId);
       }
 
-      await _mediumService.updateMediumAvailability(currentMediumId, settings.toMap());
-      await _mediumService.updateMediumSettings(currentMediumId, settings.toMap());
-      await _firebaseService.updateMediumData(currentMediumId, {
-        'isAvailable': settings.isAvailable,
-      });
-
-      availabilitySettings.value = settings;
-
-      debugPrint('✅ Configurações de disponibilidade salvas');
+      debugPrint('✅ Perfil atualizado com sucesso');
       return true;
     } catch (e) {
-      debugPrint('❌ Erro ao salvar configurações: $e');
+      debugPrint('❌ Erro ao atualizar perfil: $e');
+      errorMessage.value = 'Erro ao atualizar perfil: $e';
       return false;
     } finally {
       isSaving.value = false;
     }
   }
 
-  Future<void> loadAvailabilitySettings() async {
-    try {
-      isLoading.value = true;
-
-      final availabilityData = await _mediumService.getMediumAvailability(currentMediumId);
-      final settingsData = await _mediumService.getMediumSettings(currentMediumId);
-
-      final combinedData = {...availabilityData, ...settingsData};
-      final settings = AvailabilitySettingsModel.fromMap(combinedData);
-
-      updateFromSettings(settings);
-
-      debugPrint('✅ Configurações de disponibilidade carregadas');
-    } catch (e) {
-      debugPrint('❌ Erro ao carregar configurações: $e');
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
   Future<bool> updateMediumAvailabilityStatus(bool newStatus) async {
     try {
-      isAvailable.value = newStatus;
-
       await _firebaseService.updateMediumData(currentMediumId, {
         'isAvailable': newStatus,
         'lastSeen': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
       });
+
+      isAvailable.value = newStatus;
 
       if (mediumProfile.value != null) {
         final updatedData = mediumProfile.value!.toMap();
@@ -683,6 +961,54 @@ class MediumAdminController extends GetxController {
       isAvailable.value = !newStatus;
       return false;
     }
+  }
+
+  Map<String, dynamic> getPerformanceSummary() {
+    return {
+      'totalAppointments': totalAppointments.value,
+      'completedAppointments': completedAppointments.value,
+      'canceledAppointments': canceledAppointments.value,
+      'totalEarnings': totalEarnings.value,
+      'monthlyEarnings': monthlyEarnings.value,
+      'averageRating': averageRating.value,
+      'totalReviews': totalReviews.value,
+      'todayAppointments': todayAppointments.value,
+      'weeklyAppointments': weeklyAppointments.value,
+      'monthlyAppointments': monthlyAppointments.value,
+      'pendingAppointments': pendingAppointments.value,
+      'activeClients': activeClients.value,
+      'newClients': newClients.value,
+    };
+  }
+
+  bool get isProfileComplete {
+    final profile = mediumProfile.value;
+    if (profile == null) return false;
+
+    return profile.name.isNotEmpty &&
+        profile.bio.isNotEmpty &&
+        profile.specialties.isNotEmpty &&
+        profile.pricePerMinute > 0;
+  }
+
+  bool get hasActiveSettings {
+    return isAvailable.value &&
+        consultationDurations.isNotEmpty &&
+        (acceptsCredits.value || acceptsCards.value || acceptsPix.value);
+  }
+
+  String get completionStatus {
+    if (!isProfileComplete) return 'Perfil incompleto';
+    if (!hasActiveSettings) return 'Configurações pendentes';
+    if (!isAvailable.value) return 'Indisponível';
+    return 'Ativo';
+  }
+
+  Color get statusColor {
+    if (!isProfileComplete) return Colors.red;
+    if (!hasActiveSettings) return Colors.orange;
+    if (!isAvailable.value) return Colors.grey;
+    return Colors.green;
   }
 
   void resetToDefaults() {
@@ -732,6 +1058,44 @@ class MediumAdminController extends GetxController {
     return true;
   }
 
+  Future<bool> validateAvailabilitySettings() async {
+    if (bufferTime.value < 5 || bufferTime.value > 120) {
+      Get.snackbar('Erro', 'Tempo de buffer deve estar entre 5 e 120 minutos');
+      return false;
+    }
+
+    if (maxDailyAppointments.value < 1 || maxDailyAppointments.value > 100) {
+      Get.snackbar('Erro', 'Máximo de consultas deve estar entre 1 e 100');
+      return false;
+    }
+
+    if (minAdvanceBooking.value < 1 || minAdvanceBooking.value > 168) {
+      Get.snackbar('Erro', 'Antecedência mínima deve estar entre 1 e 168 horas');
+      return false;
+    }
+
+    if (maxAdvanceBooking.value < minAdvanceBooking.value) {
+      Get.snackbar('Erro', 'Antecedência máxima deve ser maior que a mínima');
+      return false;
+    }
+
+    if (minimumSessionPrice.value < 1.0 || minimumSessionPrice.value > 1000.0) {
+      Get.snackbar('Erro', 'Preço mínimo deve estar entre R\$ 1,00 e R\$ 1.000,00');
+      return false;
+    }
+
+    if (consultationDurations.isEmpty) {
+      Get.snackbar('Erro', 'Deve haver pelo menos uma duração de consulta');
+      return false;
+    }
+
+    if (!acceptsCredits.value && !acceptsCards.value && !acceptsPix.value) {
+      Get.snackbar('Erro', 'Deve aceitar pelo menos um método de pagamento');
+      return false;
+    }
+
+    return true;
+  }
 
   @override
   void onClose() {

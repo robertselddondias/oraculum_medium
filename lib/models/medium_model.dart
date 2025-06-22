@@ -5,8 +5,8 @@ class MediumModel {
   final String name;
   final String email;
   final String phone;
-  final String description; // Mantido da sua model original
-  final String? imageUrl; // Tornado opcional
+  final String description;
+  final String? imageUrl;
   final List<String> specialties;
   final double rating;
   final int reviewsCount;
@@ -15,12 +15,13 @@ class MediumModel {
   final bool isAvailable;
   final bool isOnline;
   final Map<String, dynamic> availability;
-  final String biography; // Mantido da sua model original
-  final String bio; // Adicionado para compatibilidade com controllers
-  final String experience; // Para compatibilidade
-  final int yearsOfExperience; // Mantido da sua model original
+  final String biography;
+  final String bio;
+  final String experience;
+  final int yearsOfExperience;
   final List<String> languages;
   final int totalAppointments;
+  final int totalReviews;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? lastSeen;
@@ -46,6 +47,7 @@ class MediumModel {
     required this.yearsOfExperience,
     required this.languages,
     required this.totalAppointments,
+    required this.totalReviews,
     required this.createdAt,
     required this.updatedAt,
     this.lastSeen,
@@ -57,26 +59,49 @@ class MediumModel {
       name: map['name'] ?? '',
       email: map['email'] ?? '',
       phone: map['phone'] ?? '',
-      description: map['description'] ?? map['bio'] ?? '', // Fallback para bio
+      description: map['description'] ?? map['bio'] ?? '',
       imageUrl: map['imageUrl'],
       specialties: List<String>.from(map['specialties'] ?? []),
       rating: (map['rating'] ?? 0.0).toDouble(),
-      reviewsCount: map['reviewsCount'] ?? 0,
+      reviewsCount: map['reviewsCount'] ?? map['totalReviews'] ?? 0,
       pricePerMinute: (map['pricePerMinute'] ?? 0.0).toDouble(),
-      isActive: map['isActive'] ?? false,
+      isActive: map['isActive'] ?? true,
       isAvailable: map['isAvailable'] ?? false,
       isOnline: map['isOnline'] ?? false,
       availability: Map<String, dynamic>.from(map['availability'] ?? {}),
-      biography: map['biography'] ?? map['bio'] ?? '', // Fallback para bio
-      bio: map['bio'] ?? map['biography'] ?? '', // Fallback para biography
+      biography: map['biography'] ?? map['bio'] ?? map['description'] ?? '',
+      bio: map['bio'] ?? map['biography'] ?? map['description'] ?? '',
       experience: map['experience'] ?? '',
       yearsOfExperience: map['yearsOfExperience'] ?? 0,
       languages: List<String>.from(map['languages'] ?? ['Português']),
       totalAppointments: map['totalAppointments'] ?? 0,
-      createdAt: map['createdAt']?.toDate() ?? DateTime.now(),
-      updatedAt: map['updatedAt']?.toDate() ?? DateTime.now(),
-      lastSeen: map['lastSeen']?.toDate(),
+      totalReviews: map['totalReviews'] ?? map['reviewsCount'] ?? 0,
+      createdAt: _parseDateTime(map['createdAt']) ?? DateTime.now(),
+      updatedAt: _parseDateTime(map['updatedAt']) ?? DateTime.now(),
+      lastSeen: _parseDateTime(map['lastSeen']),
     );
+  }
+
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+
+    if (value is DateTime) {
+      return value;
+    } else if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        return null;
+      }
+    } else if (value.runtimeType.toString().contains('Timestamp')) {
+      try {
+        return value.toDate();
+      } catch (e) {
+        return null;
+      }
+    }
+
+    return null;
   }
 
   Map<String, dynamic> toMap() {
@@ -89,6 +114,7 @@ class MediumModel {
       'specialties': specialties,
       'rating': rating,
       'reviewsCount': reviewsCount,
+      'totalReviews': totalReviews,
       'pricePerMinute': pricePerMinute,
       'isActive': isActive,
       'isAvailable': isAvailable,
@@ -100,9 +126,9 @@ class MediumModel {
       'yearsOfExperience': yearsOfExperience,
       'languages': languages,
       'totalAppointments': totalAppointments,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-      'lastSeen': lastSeen,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      'lastSeen': lastSeen?.toIso8601String(),
     };
   }
 
@@ -127,6 +153,7 @@ class MediumModel {
     int? yearsOfExperience,
     List<String>? languages,
     int? totalAppointments,
+    int? totalReviews,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? lastSeen,
@@ -152,47 +179,42 @@ class MediumModel {
       yearsOfExperience: yearsOfExperience ?? this.yearsOfExperience,
       languages: languages ?? this.languages,
       totalAppointments: totalAppointments ?? this.totalAppointments,
+      totalReviews: totalReviews ?? this.totalReviews,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastSeen: lastSeen ?? this.lastSeen,
     );
   }
 
-  // Getters para compatibilidade e conveniência
-  String get statusText {
-    if (!isActive) return 'Inativo';
-    if (isOnline) return 'Online';
-    if (isAvailable) return 'Disponível';
-    return 'Ocupado';
+  // Métodos auxiliares para compatibilidade
+  bool get hasImage => imageUrl != null && imageUrl!.isNotEmpty;
+
+  String get displayName => name.isNotEmpty ? name : email;
+
+  String get displayBio => bio.isNotEmpty ? bio : (biography.isNotEmpty ? biography : description);
+
+  bool get isProfileComplete {
+    return name.isNotEmpty &&
+        displayBio.isNotEmpty &&
+        specialties.isNotEmpty &&
+        pricePerMinute > 0;
   }
 
-  String get formattedPrice {
-    return 'R\$ ${pricePerMinute.toStringAsFixed(2)}/min';
+  String get formattedRating => rating.toStringAsFixed(1);
+
+  String get formattedPrice => 'R\$ ${pricePerMinute.toStringAsFixed(2)}/min';
+
+  @override
+  String toString() {
+    return 'MediumModel(id: $id, name: $name, email: $email, isActive: $isActive, isAvailable: $isAvailable)';
   }
 
-  String get formattedRating {
-    return rating.toStringAsFixed(1);
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is MediumModel && other.id == id;
   }
 
-  String get specialtiesString {
-    return specialties.join(', ');
-  }
-
-  String get languagesString {
-    return languages.join(', ');
-  }
-
-  String get experienceText {
-    if (yearsOfExperience == 0) return 'Novo no ramo';
-    if (yearsOfExperience == 1) return '1 ano de experiência';
-    return '$yearsOfExperience anos de experiência';
-  }
-
-  bool get hasProfileImage => imageUrl != null && imageUrl!.isNotEmpty;
-
-  // Para compatibilidade com as telas que usam 'bio'
-  String get displayBio => bio.isNotEmpty ? bio : biography;
-
-  // Para compatibilidade com as telas que usam 'description'
-  String get displayDescription => description.isNotEmpty ? description : bio;
+  @override
+  int get hashCode => id.hashCode;
 }
