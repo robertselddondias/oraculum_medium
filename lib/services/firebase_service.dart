@@ -1,3 +1,4 @@
+// lib/services/firebase_service.dart
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -20,14 +21,13 @@ class FirebaseService {
   CollectionReference get usersCollection => _firestore.collection('users');
   CollectionReference get mediumsCollection => _firestore.collection('mediums');
   CollectionReference get appointmentsCollection => _firestore.collection('appointments');
-  CollectionReference get mediumAvailabilityCollection => _firestore.collection('medium_availability');
-  CollectionReference get mediumEarningsCollection => _firestore.collection('medium_earnings');
-  CollectionReference get mediumReviewsCollection => _firestore.collection('medium_reviews');
-  CollectionReference get mediumSettingsCollection => _firestore.collection('medium_settings');
+  CollectionReference get tarotReadingsCollection => _firestore.collection('tarot_readings');
+  CollectionReference get astrologyChartsCollection => _firestore.collection('astrology_charts');
+  CollectionReference get mysticCirclesCollection => _firestore.collection('mystic_circles');
   CollectionReference get paymentsCollection => _firestore.collection('payments');
   CollectionReference get notificationsCollection => _firestore.collection('notifications');
-  CollectionReference get chatRoomsCollection => _firestore.collection('chat_rooms');
-  CollectionReference get messagesCollection => _firestore.collection('messages');
+  CollectionReference get reviewsCollection => _firestore.collection('reviews');
+  CollectionReference get settingsCollection => _firestore.collection('user_settings');
 
   // ========== MÉTODOS DE USUÁRIO ==========
 
@@ -50,25 +50,67 @@ class FirebaseService {
     return usersCollection.doc(userId).delete();
   }
 
-  Future<QuerySnapshot> searchUsers(String query) {
+  Future<QuerySnapshot> getAllUsers() {
+    return usersCollection.orderBy('createdAt', descending: true).get();
+  }
+
+  Future<QuerySnapshot> searchUsers(String searchTerm) {
     return usersCollection
-        .where('name', isGreaterThanOrEqualTo: query)
-        .where('name', isLessThanOrEqualTo: '$query\uf8ff')
-        .limit(20)
+        .where('name', isGreaterThanOrEqualTo: searchTerm)
+        .where('name', isLessThanOrEqualTo: '$searchTerm\uf8ff')
         .get();
   }
 
-  // ========== MÉTODOS DE MÉDIUM ==========
+  // ========== MÉTODOS DE CONFIGURAÇÕES ==========
+
+  Future<Map<String, dynamic>?> getUserSettings(String userId) async {
+    try {
+      final doc = await settingsCollection.doc(userId).get();
+      return doc.exists ? doc.data() as Map<String, dynamic> : null;
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar configurações: $e');
+      return null;
+    }
+  }
+
+  Future<bool> updateUserSettings(String userId, Map<String, dynamic> settings) async {
+    try {
+      settings['updatedAt'] = FieldValue.serverTimestamp();
+      await settingsCollection.doc(userId).set(settings, SetOptions(merge: true));
+      return true;
+    } catch (e) {
+      debugPrint('❌ Erro ao salvar configurações: $e');
+      return false;
+    }
+  }
+
+  Future<bool> createUserSettings(String userId, Map<String, dynamic> settings) async {
+    try {
+      settings['createdAt'] = FieldValue.serverTimestamp();
+      settings['updatedAt'] = FieldValue.serverTimestamp();
+      await settingsCollection.doc(userId).set(settings);
+      return true;
+    } catch (e) {
+      debugPrint('❌ Erro ao criar configurações: $e');
+      return false;
+    }
+  }
+
+  // ========== MÉTODOS DE MÉDIUNS ==========
 
   Future<DocumentSnapshot> getMediumData(String mediumId) {
     return mediumsCollection.doc(mediumId).get();
   }
 
-  Future<QuerySnapshot> getMediums() {
-    return mediumsCollection
-        .where('isActive', isEqualTo: true)
-        .orderBy('rating', descending: true)
-        .get();
+  Future<void> updateMediumData(String mediumId, Map<String, dynamic> data) {
+    data['updatedAt'] = FieldValue.serverTimestamp();
+    return mediumsCollection.doc(mediumId).update(data);
+  }
+
+  Future<void> createMediumData(String mediumId, Map<String, dynamic> data) {
+    data['createdAt'] = FieldValue.serverTimestamp();
+    data['updatedAt'] = FieldValue.serverTimestamp();
+    return mediumsCollection.doc(mediumId).set(data);
   }
 
   Future<QuerySnapshot> getAvailableMediums() {
@@ -87,43 +129,15 @@ class FirebaseService {
         .get();
   }
 
-  Future<QuerySnapshot> searchMediums(String query) {
+  Future<QuerySnapshot> searchMediums(String searchTerm) {
     return mediumsCollection
         .where('isActive', isEqualTo: true)
-        .where('name', isGreaterThanOrEqualTo: query)
-        .where('name', isLessThanOrEqualTo: '$query\uf8ff')
-        .orderBy('name')
-        .limit(20)
+        .where('name', isGreaterThanOrEqualTo: searchTerm)
+        .where('name', isLessThanOrEqualTo: '$searchTerm\uf8ff')
         .get();
   }
 
-  Future<void> updateMediumData(String mediumId, Map<String, dynamic> data) {
-    data['updatedAt'] = FieldValue.serverTimestamp();
-    return mediumsCollection.doc(mediumId).update(data);
-  }
-
-  Future<void> createMediumData(String mediumId, Map<String, dynamic> data) {
-    data['createdAt'] = FieldValue.serverTimestamp();
-    data['updatedAt'] = FieldValue.serverTimestamp();
-    return mediumsCollection.doc(mediumId).set(data);
-  }
-
-  Future<void> updateMediumAvailabilityStatus(String mediumId, bool isAvailable) {
-    return mediumsCollection.doc(mediumId).update({
-      'isAvailable': isAvailable,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  Future<void> updateMediumRating(String mediumId, double newRating, int totalReviews) {
-    return mediumsCollection.doc(mediumId).update({
-      'rating': newRating,
-      'totalReviews': totalReviews,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  // ========== MÉTODOS DE AGENDAMENTO ==========
+  // ========== MÉTODOS DE CONSULTAS ==========
 
   Future<DocumentReference> createAppointment(Map<String, dynamic> appointmentData) {
     appointmentData['createdAt'] = FieldValue.serverTimestamp();
@@ -136,222 +150,149 @@ class FirebaseService {
     return appointmentsCollection.doc(appointmentId).update(data);
   }
 
-  Future<void> updateAppointmentStatus(String appointmentId, String status) {
-    return appointmentsCollection.doc(appointmentId).update({
-      'status': status,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  Future<void> cancelAppointment(String appointmentId, String reason) {
-    return appointmentsCollection.doc(appointmentId).update({
-      'status': 'canceled',
-      'cancelReason': reason,
-      'canceledAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  Future<void> completeAppointment(String appointmentId, Map<String, dynamic>? completionData) {
-    final data = <String, dynamic>{
-      'status': 'completed',
-      'completedAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-
-    if (completionData != null) {
-      data.addAll(completionData);
-    }
-
-    return appointmentsCollection.doc(appointmentId).update(data);
+  Future<DocumentSnapshot> getAppointment(String appointmentId) {
+    return appointmentsCollection.doc(appointmentId).get();
   }
 
   Future<QuerySnapshot> getUserAppointments(String userId) {
     return appointmentsCollection
         .where('userId', isEqualTo: userId)
-        .orderBy('dateTime', descending: true)
+        .orderBy('scheduledDateTime', descending: true)
         .get();
   }
 
   Future<QuerySnapshot> getMediumAppointments(String mediumId) {
     return appointmentsCollection
         .where('mediumId', isEqualTo: mediumId)
-        .orderBy('dateTime', descending: false)
+        .orderBy('scheduledDateTime', descending: true)
         .get();
   }
 
-  Future<QuerySnapshot> getMediumAppointmentsByStatus(String mediumId, String status) {
+  Future<QuerySnapshot> getAppointmentsByStatus(String userId, String status) {
     return appointmentsCollection
-        .where('mediumId', isEqualTo: mediumId)
+        .where('userId', isEqualTo: userId)
         .where('status', isEqualTo: status)
-        .orderBy('dateTime', descending: false)
+        .orderBy('scheduledDateTime', descending: true)
         .get();
   }
 
-  Future<QuerySnapshot> getMediumAppointmentsInPeriod(
-      String mediumId,
-      DateTime startDate,
-      DateTime endDate,
-      ) {
-    return appointmentsCollection
-        .where('mediumId', isEqualTo: mediumId)
-        .where('dateTime', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
-        .where('dateTime', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
-        .orderBy('dateTime')
-        .get();
+  // ========== MÉTODOS DE LEITURAS DE TARÔ ==========
+
+  Future<DocumentReference> createTarotReading(Map<String, dynamic> readingData) {
+    readingData['createdAt'] = FieldValue.serverTimestamp();
+    readingData['updatedAt'] = FieldValue.serverTimestamp();
+    return tarotReadingsCollection.add(readingData);
   }
 
-  Future<QuerySnapshot> getTodayAppointments(String mediumId) {
-    final now = DateTime.now();
-    final startOfDay = DateTime(now.year, now.month, now.day);
-    final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
-
-    return appointmentsCollection
-        .where('mediumId', isEqualTo: mediumId)
-        .where('dateTime', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-        .where('dateTime', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
-        .orderBy('dateTime')
-        .get();
-  }
-
-  Future<DocumentSnapshot> getAppointmentData(String appointmentId) {
-    return appointmentsCollection.doc(appointmentId).get();
-  }
-
-  // ========== MÉTODOS DE DISPONIBILIDADE ==========
-
-  Future<DocumentSnapshot> getMediumAvailability(String mediumId) {
-    return mediumAvailabilityCollection.doc(mediumId).get();
-  }
-
-  Future<void> updateMediumAvailability(String mediumId, Map<String, dynamic> data) {
+  Future<void> updateTarotReading(String readingId, Map<String, dynamic> data) {
     data['updatedAt'] = FieldValue.serverTimestamp();
-    return mediumAvailabilityCollection.doc(mediumId).set(data, SetOptions(merge: true));
+    return tarotReadingsCollection.doc(readingId).update(data);
   }
 
-  Future<void> createMediumAvailability(String mediumId, Map<String, dynamic> data) {
-    data['createdAt'] = FieldValue.serverTimestamp();
-    data['updatedAt'] = FieldValue.serverTimestamp();
-    return mediumAvailabilityCollection.doc(mediumId).set(data);
+  Future<DocumentSnapshot> getTarotReading(String readingId) {
+    return tarotReadingsCollection.doc(readingId).get();
   }
 
-  Future<void> addMediumAvailableSlot(String mediumId, Map<String, dynamic> slot) {
-    return mediumAvailabilityCollection.doc(mediumId).update({
-      'availableSlots': FieldValue.arrayUnion([slot]),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  Future<void> removeMediumAvailableSlot(String mediumId, Map<String, dynamic> slot) {
-    return mediumAvailabilityCollection.doc(mediumId).update({
-      'availableSlots': FieldValue.arrayRemove([slot]),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  // ========== MÉTODOS DE GANHOS ==========
-
-  Future<DocumentReference> createEarningRecord(Map<String, dynamic> earningData) {
-    earningData['createdAt'] = FieldValue.serverTimestamp();
-    return mediumEarningsCollection.add(earningData);
-  }
-
-  Future<QuerySnapshot> getMediumEarnings(String mediumId) {
-    return mediumEarningsCollection
-        .where('mediumId', isEqualTo: mediumId)
-        .orderBy('date', descending: true)
-        .get();
-  }
-
-  Future<QuerySnapshot> getMediumEarningsInPeriod(
-      String mediumId,
-      DateTime startDate,
-      DateTime endDate,
-      ) {
-    return mediumEarningsCollection
-        .where('mediumId', isEqualTo: mediumId)
-        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
-        .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
-        .orderBy('date', descending: true)
-        .get();
-  }
-
-  Future<QuerySnapshot> getTodayEarnings(String mediumId) {
-    final now = DateTime.now();
-    final startOfDay = DateTime(now.year, now.month, now.day);
-    final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
-
-    return mediumEarningsCollection
-        .where('mediumId', isEqualTo: mediumId)
-        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-        .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
-        .get();
-  }
-
-  Future<void> updateEarningRecord(String earningId, Map<String, dynamic> data) {
-    data['updatedAt'] = FieldValue.serverTimestamp();
-    return mediumEarningsCollection.doc(earningId).update(data);
-  }
-
-  // ========== MÉTODOS DE AVALIAÇÕES ==========
-
-  Future<DocumentReference> createReview(Map<String, dynamic> reviewData) {
-    reviewData['createdAt'] = FieldValue.serverTimestamp();
-    return mediumReviewsCollection.add(reviewData);
-  }
-
-  Future<QuerySnapshot> getMediumReviews(String mediumId) {
-    return mediumReviewsCollection
-        .where('mediumId', isEqualTo: mediumId)
-        .orderBy('createdAt', descending: true)
-        .get();
-  }
-
-  Future<QuerySnapshot> getUserReviews(String userId) {
-    return mediumReviewsCollection
+  Future<QuerySnapshot> getUserTarotReadings(String userId) {
+    return tarotReadingsCollection
         .where('userId', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
         .get();
   }
 
-  Future<void> updateReview(String reviewId, Map<String, dynamic> data) {
+  Future<QuerySnapshot> getSharedTarotReadings() {
+    return tarotReadingsCollection
+        .where('isShared', isEqualTo: true)
+        .where('isPublic', isEqualTo: true)
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .get();
+  }
+
+  Future<void> deleteTarotReading(String readingId) {
+    return tarotReadingsCollection.doc(readingId).delete();
+  }
+
+  // ========== MÉTODOS DE MAPAS ASTROLÓGICOS ==========
+
+  Future<DocumentReference> createAstrologyChart(Map<String, dynamic> chartData) {
+    chartData['createdAt'] = FieldValue.serverTimestamp();
+    chartData['updatedAt'] = FieldValue.serverTimestamp();
+    return astrologyChartsCollection.add(chartData);
+  }
+
+  Future<void> updateAstrologyChart(String chartId, Map<String, dynamic> data) {
     data['updatedAt'] = FieldValue.serverTimestamp();
-    return mediumReviewsCollection.doc(reviewId).update(data);
+    return astrologyChartsCollection.doc(chartId).update(data);
   }
 
-  Future<void> deleteReview(String reviewId) {
-    return mediumReviewsCollection.doc(reviewId).delete();
+  Future<DocumentSnapshot> getAstrologyChart(String chartId) {
+    return astrologyChartsCollection.doc(chartId).get();
   }
 
-  Future<DocumentSnapshot> getReview(String reviewId) {
-    return mediumReviewsCollection.doc(reviewId).get();
+  Future<QuerySnapshot> getUserAstrologyCharts(String userId) {
+    return astrologyChartsCollection
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .get();
   }
 
-  // ========== MÉTODOS DE CONFIGURAÇÕES ==========
-
-  Future<DocumentSnapshot> getMediumSettings(String mediumId) {
-    return mediumSettingsCollection.doc(mediumId).get();
+  Future<QuerySnapshot> getSharedAstrologyCharts() {
+    return astrologyChartsCollection
+        .where('isShared', isEqualTo: true)
+        .where('isPublic', isEqualTo: true)
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .get();
   }
 
-  Future<void> updateMediumSettings(String mediumId, Map<String, dynamic> data) {
+  Future<void> deleteAstrologyChart(String chartId) {
+    return astrologyChartsCollection.doc(chartId).delete();
+  }
+
+  // ========== MÉTODOS DE CÍRCULOS MÍSTICOS ==========
+
+  Future<DocumentReference> createMysticCircle(Map<String, dynamic> circleData) {
+    circleData['createdAt'] = FieldValue.serverTimestamp();
+    circleData['updatedAt'] = FieldValue.serverTimestamp();
+    return mysticCirclesCollection.add(circleData);
+  }
+
+  Future<void> updateMysticCircle(String circleId, Map<String, dynamic> data) {
     data['updatedAt'] = FieldValue.serverTimestamp();
-    return mediumSettingsCollection.doc(mediumId).set(data, SetOptions(merge: true));
+    return mysticCirclesCollection.doc(circleId).update(data);
   }
 
-  Future<void> createMediumSettings(String mediumId, Map<String, dynamic> data) {
-    data['createdAt'] = FieldValue.serverTimestamp();
-    data['updatedAt'] = FieldValue.serverTimestamp();
-    return mediumSettingsCollection.doc(mediumId).set(data);
+  Future<DocumentSnapshot> getMysticCircle(String circleId) {
+    return mysticCirclesCollection.doc(circleId).get();
   }
 
-  Future<void> updateNotificationSettings(String mediumId, Map<String, dynamic> notificationSettings) {
-    return mediumSettingsCollection.doc(mediumId).update({
-      'notificationSettings': notificationSettings,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+  Future<QuerySnapshot> getUserMysticCircles(String userId) {
+    return mysticCirclesCollection
+        .where('memberIds', arrayContains: userId)
+        .orderBy('updatedAt', descending: true)
+        .get();
   }
 
-  // ========== MÉTODOS DE PAGAMENTO ==========
+  Future<QuerySnapshot> getPublicMysticCircles() {
+    return mysticCirclesCollection
+        .where('isPublic', isEqualTo: true)
+        .where('isActive', isEqualTo: true)
+        .orderBy('memberCount', descending: true)
+        .limit(20)
+        .get();
+  }
+
+  Future<QuerySnapshot> searchMysticCircles(String searchTerm) {
+    return mysticCirclesCollection
+        .where('isPublic', isEqualTo: true)
+        .where('isActive', isEqualTo: true)
+        .where('name', isGreaterThanOrEqualTo: searchTerm)
+        .where('name', isLessThanOrEqualTo: '$searchTerm\uf8ff')
+        .get();
+  }
+
+  // ========== MÉTODOS DE PAGAMENTOS ==========
 
   Future<DocumentReference> createPayment(Map<String, dynamic> paymentData) {
     paymentData['createdAt'] = FieldValue.serverTimestamp();
@@ -359,11 +300,13 @@ class FirebaseService {
     return paymentsCollection.add(paymentData);
   }
 
-  Future<void> updatePaymentStatus(String paymentId, String status) {
-    return paymentsCollection.doc(paymentId).update({
-      'status': status,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+  Future<void> updatePayment(String paymentId, Map<String, dynamic> data) {
+    data['updatedAt'] = FieldValue.serverTimestamp();
+    return paymentsCollection.doc(paymentId).update(data);
+  }
+
+  Future<DocumentSnapshot> getPayment(String paymentId) {
+    return paymentsCollection.doc(paymentId).get();
   }
 
   Future<QuerySnapshot> getUserPayments(String userId) {
@@ -373,23 +316,60 @@ class FirebaseService {
         .get();
   }
 
-  Future<QuerySnapshot> getMediumPayments(String mediumId) {
+  Future<QuerySnapshot> getPaymentsByStatus(String userId, String status) {
     return paymentsCollection
+        .where('userId', isEqualTo: userId)
+        .where('status', isEqualTo: status)
+        .orderBy('createdAt', descending: true)
+        .get();
+  }
+
+  // ========== MÉTODOS DE AVALIAÇÕES ==========
+
+  Future<DocumentReference> createReview(Map<String, dynamic> reviewData) {
+    reviewData['createdAt'] = FieldValue.serverTimestamp();
+    reviewData['updatedAt'] = FieldValue.serverTimestamp();
+    return reviewsCollection.add(reviewData);
+  }
+
+  Future<void> updateReview(String reviewId, Map<String, dynamic> data) {
+    data['updatedAt'] = FieldValue.serverTimestamp();
+    return reviewsCollection.doc(reviewId).update(data);
+  }
+
+  Future<DocumentSnapshot> getReview(String reviewId) {
+    return reviewsCollection.doc(reviewId).get();
+  }
+
+  Future<QuerySnapshot> getMediumReviews(String mediumId) {
+    return reviewsCollection
         .where('mediumId', isEqualTo: mediumId)
         .orderBy('createdAt', descending: true)
         .get();
   }
 
-  Future<DocumentSnapshot> getPaymentData(String paymentId) {
-    return paymentsCollection.doc(paymentId).get();
+  Future<QuerySnapshot> getUserReviews(String userId) {
+    return reviewsCollection
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .get();
   }
 
-  // ========== MÉTODOS DE NOTIFICAÇÃO ==========
+  Future<void> deleteReview(String reviewId) {
+    return reviewsCollection.doc(reviewId).delete();
+  }
+
+  // ========== MÉTODOS DE NOTIFICAÇÕES ==========
 
   Future<DocumentReference> createNotification(Map<String, dynamic> notificationData) {
     notificationData['createdAt'] = FieldValue.serverTimestamp();
-    notificationData['isRead'] = false;
+    notificationData['updatedAt'] = FieldValue.serverTimestamp();
     return notificationsCollection.add(notificationData);
+  }
+
+  Future<void> updateNotification(String notificationId, Map<String, dynamic> data) {
+    data['updatedAt'] = FieldValue.serverTimestamp();
+    return notificationsCollection.doc(notificationId).update(data);
   }
 
   Future<QuerySnapshot> getUserNotifications(String userId) {
@@ -416,98 +396,94 @@ class FirebaseService {
   }
 
   Future<void> markAllNotificationsAsRead(String userId) async {
-    try {
-      final unreadNotifications = await notificationsCollection
-          .where('userId', isEqualTo: userId)
-          .where('isRead', isEqualTo: false)
-          .get();
+    final batch = _firestore.batch();
+    final unreadNotifications = await getUnreadNotifications(userId);
 
-      if (unreadNotifications.docs.isEmpty) return;
-
-      final batch = _firestore.batch();
-
-      for (final doc in unreadNotifications.docs) {
-        batch.update(doc.reference, {
-          'isRead': true,
-          'readAt': FieldValue.serverTimestamp(),
-        });
-      }
-
-      await batch.commit();
-      debugPrint('✅ ${unreadNotifications.docs.length} notificações marcadas como lidas');
-    } catch (e) {
-      debugPrint('❌ Erro ao marcar notificações como lidas: $e');
-      throw Exception('Erro ao marcar notificações como lidas');
+    for (final doc in unreadNotifications.docs) {
+      batch.update(doc.reference, {
+        'isRead': true,
+        'readAt': FieldValue.serverTimestamp(),
+      });
     }
+
+    await batch.commit();
   }
 
   Future<void> deleteNotification(String notificationId) {
     return notificationsCollection.doc(notificationId).delete();
   }
 
-  // ========== MÉTODOS DE CHAT ==========
-
-  Future<DocumentReference> createChatRoom(Map<String, dynamic> chatRoomData) {
-    chatRoomData['createdAt'] = FieldValue.serverTimestamp();
-    chatRoomData['updatedAt'] = FieldValue.serverTimestamp();
-    return chatRoomsCollection.add(chatRoomData);
-  }
-
-  Future<QuerySnapshot> getUserChatRooms(String userId) {
-    return chatRoomsCollection
-        .where('participants', arrayContains: userId)
-        .orderBy('updatedAt', descending: true)
-        .get();
-  }
-
-  Future<DocumentReference> sendMessage(String chatRoomId, Map<String, dynamic> messageData) {
-    messageData['createdAt'] = FieldValue.serverTimestamp();
-
-    chatRoomsCollection.doc(chatRoomId).update({
-      'lastMessage': messageData['text'],
-      'lastMessageAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-
-    return messagesCollection.add({
-      ...messageData,
-      'chatRoomId': chatRoomId,
-    });
-  }
-
-  Stream<QuerySnapshot> getChatMessages(String chatRoomId) {
-    return messagesCollection
-        .where('chatRoomId', isEqualTo: chatRoomId)
-        .orderBy('createdAt', descending: true)
-        .limit(100)
-        .snapshots();
-  }
-
   // ========== MÉTODOS DE UPLOAD ==========
 
-  Future<String> uploadProfileImage(String userId, File imageFile) async {
+  Future<String> uploadProfileImage(String userId, String imagePath) async {
     try {
+      final file = File(imagePath);
       final path = 'profile_images/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
       final ref = _storage.ref().child(path);
-      final uploadTask = ref.putFile(imageFile);
+
+      final uploadTask = ref.putFile(file);
       final snapshot = await uploadTask.whenComplete(() {});
       final downloadUrl = await snapshot.ref.getDownloadURL();
+
+      debugPrint('✅ Imagem de perfil enviada: $downloadUrl');
       return downloadUrl;
     } catch (e) {
-      debugPrint('Erro ao fazer upload da imagem: $e');
+      debugPrint('❌ Erro ao fazer upload da imagem de perfil: $e');
       throw Exception('Erro ao fazer upload da imagem: $e');
     }
   }
 
-  Future<String> uploadImage(File imageFile, String path) async {
+  Future<String> uploadTarotImage(String userId, String imagePath) async {
     try {
+      final file = File(imagePath);
+      final path = 'tarot_images/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
       final ref = _storage.ref().child(path);
-      final uploadTask = ref.putFile(imageFile);
+
+      final uploadTask = ref.putFile(file);
       final snapshot = await uploadTask.whenComplete(() {});
       final downloadUrl = await snapshot.ref.getDownloadURL();
+
+      debugPrint('✅ Imagem de tarô enviada: $downloadUrl');
       return downloadUrl;
     } catch (e) {
-      debugPrint('Erro ao fazer upload da imagem: $e');
+      debugPrint('❌ Erro ao fazer upload da imagem de tarô: $e');
+      throw Exception('Erro ao fazer upload da imagem: $e');
+    }
+  }
+
+  Future<String> uploadCircleImage(String circleId, String imagePath) async {
+    try {
+      final file = File(imagePath);
+      final path = 'circle_images/$circleId/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final ref = _storage.ref().child(path);
+
+      final uploadTask = ref.putFile(file);
+      final snapshot = await uploadTask.whenComplete(() {});
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+
+      debugPrint('✅ Imagem de círculo enviada: $downloadUrl');
+      return downloadUrl;
+    } catch (e) {
+      debugPrint('❌ Erro ao fazer upload da imagem de círculo: $e');
+      throw Exception('Erro ao fazer upload da imagem: $e');
+    }
+  }
+
+  Future<String> uploadGenericImage(String folder, String imagePath) async {
+    try {
+      final file = File(imagePath);
+      final fileName = imagePath.split('/').last;
+      final path = '$folder/${DateTime.now().millisecondsSinceEpoch}_$fileName';
+      final ref = _storage.ref().child(path);
+
+      final uploadTask = ref.putFile(file);
+      final snapshot = await uploadTask.whenComplete(() {});
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+
+      debugPrint('✅ Imagem enviada: $downloadUrl');
+      return downloadUrl;
+    } catch (e) {
+      debugPrint('❌ Erro ao fazer upload da imagem: $e');
       throw Exception('Erro ao fazer upload da imagem: $e');
     }
   }
@@ -516,575 +492,282 @@ class FirebaseService {
     try {
       final ref = _storage.refFromURL(imageUrl);
       await ref.delete();
+      debugPrint('✅ Imagem deletada: $imageUrl');
     } catch (e) {
-      debugPrint('Erro ao deletar imagem: $e');
+      debugPrint('❌ Erro ao deletar imagem: $e');
     }
   }
 
-  // ========== MÉTODOS DE ANALYTICS ==========
+  // ========== MÉTODOS DE ESTATÍSTICAS ==========
 
-  Future<Map<String, dynamic>> getMediumAnalytics(String mediumId) async {
+  Future<int> getUserTotalReadings(String userId) async {
     try {
-      final now = DateTime.now();
-      final startOfMonth = DateTime(now.year, now.month, 1);
-      final startOfYear = DateTime(now.year, 1, 1);
-
-      final monthlyAppointments = await getMediumAppointmentsInPeriod(
-        mediumId,
-        startOfMonth,
-        now,
-      );
-
-      final yearlyAppointments = await getMediumAppointmentsInPeriod(
-        mediumId,
-        startOfYear,
-        now,
-      );
-
-      final monthlyEarnings = await getMediumEarningsInPeriod(
-        mediumId,
-        startOfMonth,
-        now,
-      );
-
-      final reviews = await getMediumReviews(mediumId);
-
-      double totalMonthlyEarnings = 0;
-      for (final doc in monthlyEarnings.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        totalMonthlyEarnings += (data['amount'] ?? 0.0).toDouble();
-      }
-
-      double averageRating = 0;
-      if (reviews.docs.isNotEmpty) {
-        double totalRating = 0;
-        for (final doc in reviews.docs) {
-          final data = doc.data() as Map<String, dynamic>;
-          totalRating += (data['rating'] ?? 0.0).toDouble();
-        }
-        averageRating = totalRating / reviews.docs.length;
-      }
-
-      return {
-        'monthlyAppointments': monthlyAppointments.docs.length,
-        'yearlyAppointments': yearlyAppointments.docs.length,
-        'monthlyEarnings': totalMonthlyEarnings,
-        'totalReviews': reviews.docs.length,
-        'averageRating': averageRating,
-        'updatedAt': DateTime.now(),
-      };
+      final readings = await getUserTarotReadings(userId);
+      return readings.docs.length;
     } catch (e) {
-      debugPrint('Erro ao buscar analytics: $e');
-      return {};
+      debugPrint('❌ Erro ao contar leituras: $e');
+      return 0;
+    }
+  }
+
+  Future<int> getUserTotalCharts(String userId) async {
+    try {
+      final charts = await getUserAstrologyCharts(userId);
+      return charts.docs.length;
+    } catch (e) {
+      debugPrint('❌ Erro ao contar mapas: $e');
+      return 0;
+    }
+  }
+
+  Future<int> getUserTotalCircles(String userId) async {
+    try {
+      final circles = await getUserMysticCircles(userId);
+      return circles.docs.length;
+    } catch (e) {
+      debugPrint('❌ Erro ao contar círculos: $e');
+      return 0;
+    }
+  }
+
+  Future<double> getUserTotalSpent(String userId) async {
+    try {
+      final payments = await getUserPayments(userId);
+      double total = 0.0;
+
+      for (final doc in payments.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final amount = (data['amount'] ?? 0.0).toDouble();
+        final status = data['status'] ?? '';
+
+        if (status == 'completed' || status == 'success') {
+          total += amount;
+        }
+      }
+
+      return total;
+    } catch (e) {
+      debugPrint('❌ Erro ao calcular total gasto: $e');
+      return 0.0;
     }
   }
 
   // ========== MÉTODOS DE BUSCA AVANÇADA ==========
 
-  Future<QuerySnapshot> advancedMediumSearch({
-    String? name,
-    List<String>? specialties,
-    double? minRating,
-    double? maxPrice,
-    bool? isAvailable,
-  }) {
-    Query query = mediumsCollection.where('isActive', isEqualTo: true);
-
-    if (name != null && name.isNotEmpty) {
-      query = query
-          .where('name', isGreaterThanOrEqualTo: name)
-          .where('name', isLessThanOrEqualTo: '$name\uf8ff');
+  Future<QuerySnapshot> searchContent(String searchTerm, String contentType) async {
+    switch (contentType.toLowerCase()) {
+      case 'users':
+        return searchUsers(searchTerm);
+      case 'mediums':
+        return searchMediums(searchTerm);
+      case 'circles':
+        return searchMysticCircles(searchTerm);
+      default:
+        throw ArgumentError('Tipo de conteúdo não suportado: $contentType');
     }
+  }
 
-    if (minRating != null) {
-      query = query.where('rating', isGreaterThanOrEqualTo: minRating);
+  Future<List<DocumentSnapshot>> getRecentActivity(String userId, {int limit = 20}) async {
+    final activities = <DocumentSnapshot>[];
+
+    try {
+      // Leituras recentes
+      final readings = await tarotReadingsCollection
+          .where('userId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .limit(limit ~/ 4)
+          .get();
+      activities.addAll(readings.docs);
+
+      // Mapas recentes
+      final charts = await astrologyChartsCollection
+          .where('userId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .limit(limit ~/ 4)
+          .get();
+      activities.addAll(charts.docs);
+
+      // Consultas recentes
+      final appointments = await appointmentsCollection
+          .where('userId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .limit(limit ~/ 4)
+          .get();
+      activities.addAll(appointments.docs);
+
+      // Avaliações recentes
+      final reviews = await reviewsCollection
+          .where('userId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .limit(limit ~/ 4)
+          .get();
+      activities.addAll(reviews.docs);
+
+      // Ordenar por data de criação
+      activities.sort((a, b) {
+        final aData = a.data() as Map<String, dynamic>;
+        final bData = b.data() as Map<String, dynamic>;
+        final aCreated = aData['createdAt'] as Timestamp?;
+        final bCreated = bData['createdAt'] as Timestamp?;
+
+        if (aCreated == null || bCreated == null) return 0;
+        return bCreated.compareTo(aCreated);
+      });
+
+      return activities.take(limit).toList();
+    } catch (e) {
+      debugPrint('❌ Erro ao buscar atividades recentes: $e');
+      return [];
     }
+  }
 
-    if (maxPrice != null) {
-      query = query.where('pricePerMinute', isLessThanOrEqualTo: maxPrice);
+  // ========== MÉTODOS DE BACKUP E SINCRONIZAÇÃO ==========
+
+  Future<Map<String, dynamic>> exportUserData(String userId) async {
+    try {
+      final userData = await getUserData(userId);
+      final userSettings = await getUserSettings(userId);
+      final userReadings = await getUserTarotReadings(userId);
+      final userCharts = await getUserAstrologyCharts(userId);
+      final userPayments = await getUserPayments(userId);
+      final userReviews = await getUserReviews(userId);
+
+      return {
+        'user': userData.data(),
+        'settings': userSettings,
+        'tarotReadings': userReadings.docs.map((doc) => doc.data()).toList(),
+        'astrologyCharts': userCharts.docs.map((doc) => doc.data()).toList(),
+        'payments': userPayments.docs.map((doc) => doc.data()).toList(),
+        'reviews': userReviews.docs.map((doc) => doc.data()).toList(),
+        'exportedAt': DateTime.now().toIso8601String(),
+      };
+    } catch (e) {
+      debugPrint('❌ Erro ao exportar dados do usuário: $e');
+      throw Exception('Erro ao exportar dados: $e');
     }
-
-    if (isAvailable == true) {
-      query = query.where('isAvailable', isEqualTo: true);
-    }
-
-    return query.orderBy('rating', descending: true).limit(20).get();
-  }
-
-  // ========== MÉTODOS DE TRANSAÇÃO ==========
-
-  Future<T> runTransaction<T>(Future<T> Function(Transaction) updateFunction) async {
-    return await _firestore.runTransaction<T>(updateFunction);
-  }
-
-  Future<void> batch(Function(WriteBatch) operations) async {
-    final batch = _firestore.batch();
-    operations(batch);
-    await batch.commit();
-  }
-
-  // ========== MÉTODOS DE STREAM ==========
-
-  Stream<DocumentSnapshot> getMediumDataStream(String mediumId) {
-    return mediumsCollection.doc(mediumId).snapshots();
-  }
-
-  Stream<QuerySnapshot> getMediumAppointmentsStream(String mediumId) {
-    return appointmentsCollection
-        .where('mediumId', isEqualTo: mediumId)
-        .orderBy('dateTime', descending: false)
-        .snapshots();
-  }
-
-  Stream<QuerySnapshot> getUserNotificationsStream(String userId) {
-    return notificationsCollection
-        .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .limit(20)
-        .snapshots();
   }
 
   // ========== MÉTODOS DE LIMPEZA ==========
 
-  Future<void> cleanupOldNotifications() async {
-    final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
-
-    final oldNotifications = await notificationsCollection
-        .where('createdAt', isLessThan: Timestamp.fromDate(thirtyDaysAgo))
-        .get();
-
-    final batch = _firestore.batch();
-    for (final doc in oldNotifications.docs) {
-      batch.delete(doc.reference);
-    }
-
-    if (oldNotifications.docs.isNotEmpty) {
-      await batch.commit();
-      debugPrint('Limpou ${oldNotifications.docs.length} notificações antigas');
-    }
-  }
-
-  Future<void> cleanupCanceledAppointments() async {
-    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-
-    final canceledAppointments = await appointmentsCollection
-        .where('status', isEqualTo: 'canceled')
-        .where('canceledAt', isLessThan: Timestamp.fromDate(sevenDaysAgo))
-        .get();
-
-    final batch = _firestore.batch();
-    for (final doc in canceledAppointments.docs) {
-      batch.delete(doc.reference);
-    }
-
-    if (canceledAppointments.docs.isNotEmpty) {
-      await batch.commit();
-      debugPrint('Limpou ${canceledAppointments.docs.length} agendamentos cancelados antigos');
-    }
-  }
-
-  // ========== MÉTODOS DE ESTATÍSTICAS E REPORTS ==========
-
-  Future<Map<String, dynamic>> getDashboardStats(String mediumId) async {
+  Future<void> cleanupOldNotifications(String userId, {int daysOld = 30}) async {
     try {
-      final now = DateTime.now();
-      final startOfMonth = DateTime(now.year, now.month, 1);
-      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-      final startOfToday = DateTime(now.year, now.month, now.day);
-
-      final results = await Future.wait([
-        getMediumAppointments(mediumId),
-        getMediumEarnings(mediumId),
-        getMediumReviews(mediumId),
-        getTodayAppointments(mediumId),
-      ]);
-
-      final allAppointments = results[0] as QuerySnapshot;
-      final allEarnings = results[1] as QuerySnapshot;
-      final allReviews = results[2] as QuerySnapshot;
-      final todayAppointments = results[3] as QuerySnapshot;
-
-      int monthlyAppointments = 0;
-      int weeklyAppointments = 0;
-      int completedAppointments = 0;
-      int pendingAppointments = 0;
-
-      for (final doc in allAppointments.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        final dateTime = (data['dateTime'] as Timestamp).toDate();
-        final status = data['status'] as String;
-
-        if (dateTime.isAfter(startOfMonth)) monthlyAppointments++;
-        if (dateTime.isAfter(startOfWeek)) weeklyAppointments++;
-        if (status == 'completed') completedAppointments++;
-        if (status == 'pending') pendingAppointments++;
-      }
-
-      double totalEarnings = 0;
-      double monthlyEarnings = 0;
-      double weeklyEarnings = 0;
-
-      for (final doc in allEarnings.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        final amount = (data['amount'] ?? 0.0).toDouble();
-        final date = (data['date'] as Timestamp).toDate();
-
-        totalEarnings += amount;
-        if (date.isAfter(startOfMonth)) monthlyEarnings += amount;
-        if (date.isAfter(startOfWeek)) weeklyEarnings += amount;
-      }
-
-      double averageRating = 0;
-      if (allReviews.docs.isNotEmpty) {
-        double totalRating = 0;
-        for (final doc in allReviews.docs) {
-          final data = doc.data() as Map<String, dynamic>;
-          totalRating += (data['rating'] ?? 0.0).toDouble();
-        }
-        averageRating = totalRating / allReviews.docs.length;
-      }
-
-      return {
-        'totalAppointments': allAppointments.docs.length,
-        'monthlyAppointments': monthlyAppointments,
-        'weeklyAppointments': weeklyAppointments,
-        'completedAppointments': completedAppointments,
-        'pendingAppointments': pendingAppointments,
-        'todayAppointments': todayAppointments.docs.length,
-        'totalEarnings': totalEarnings,
-        'monthlyEarnings': monthlyEarnings,
-        'weeklyEarnings': weeklyEarnings,
-        'averageRating': averageRating,
-        'totalReviews': allReviews.docs.length,
-        'completionRate': allAppointments.docs.isEmpty ? 0.0 : (completedAppointments / allAppointments.docs.length) * 100,
-      };
-    } catch (e) {
-      debugPrint('Erro ao buscar estatísticas do dashboard: $e');
-      return {};
-    }
-  }
-
-  // ========== MÉTODOS DE BACKUP E SYNC ==========
-
-  Future<void> backupMediumData(String mediumId) async {
-    try {
-      final backupData = {
-        'mediumProfile': await getMediumData(mediumId),
-        'settings': await getMediumSettings(mediumId),
-        'availability': await getMediumAvailability(mediumId),
-        'appointments': await getMediumAppointments(mediumId),
-        'earnings': await getMediumEarnings(mediumId),
-        'reviews': await getMediumReviews(mediumId),
-        'backupDate': FieldValue.serverTimestamp(),
-      };
-
-      await _firestore.collection('backups').doc(mediumId).set(backupData);
-      debugPrint('✅ Backup realizado para médium: $mediumId');
-    } catch (e) {
-      debugPrint('❌ Erro ao fazer backup: $e');
-      throw Exception('Erro ao fazer backup dos dados');
-    }
-  }
-
-  Future<Map<String, dynamic>?> restoreMediumData(String mediumId) async {
-    try {
-      final backupDoc = await _firestore.collection('backups').doc(mediumId).get();
-
-      if (backupDoc.exists) {
-        debugPrint('✅ Backup encontrado para médium: $mediumId');
-        return backupDoc.data() as Map<String, dynamic>;
-      } else {
-        debugPrint('⚠️ Nenhum backup encontrado para médium: $mediumId');
-        return null;
-      }
-    } catch (e) {
-      debugPrint('❌ Erro ao restaurar backup: $e');
-      return null;
-    }
-  }
-
-  // ========== MÉTODOS DE VALIDAÇÃO E SEGURANÇA ==========
-
-  Future<bool> validateMediumAccess(String mediumId, String userId) async {
-    try {
-      final mediumDoc = await getMediumData(mediumId);
-
-      if (!mediumDoc.exists) return false;
-
-      final mediumData = mediumDoc.data() as Map<String, dynamic>;
-      return mediumData['userId'] == userId || mediumId == userId;
-    } catch (e) {
-      debugPrint('❌ Erro ao validar acesso: $e');
-      return false;
-    }
-  }
-
-  Future<bool> checkAppointmentConflict(String mediumId, DateTime dateTime, int durationMinutes) async {
-    try {
-      final startTime = dateTime.subtract(const Duration(minutes: 15));
-      final endTime = dateTime.add(Duration(minutes: durationMinutes + 15));
-
-      final conflictingAppointments = await appointmentsCollection
-          .where('mediumId', isEqualTo: mediumId)
-          .where('dateTime', isGreaterThanOrEqualTo: Timestamp.fromDate(startTime))
-          .where('dateTime', isLessThanOrEqualTo: Timestamp.fromDate(endTime))
-          .where('status', whereIn: ['pending', 'confirmed'])
+      final cutoffDate = DateTime.now().subtract(Duration(days: daysOld));
+      final oldNotifications = await notificationsCollection
+          .where('userId', isEqualTo: userId)
+          .where('createdAt', isLessThan: Timestamp.fromDate(cutoffDate))
           .get();
 
-      return conflictingAppointments.docs.isNotEmpty;
-    } catch (e) {
-      debugPrint('❌ Erro ao verificar conflitos: $e');
-      return true;
-    }
-  }
-
-  Future<bool> validateBusinessHours(String mediumId, DateTime dateTime) async {
-    try {
-      final availabilityDoc = await getMediumAvailability(mediumId);
-
-      if (!availabilityDoc.exists) return false;
-
-      final availabilityData = availabilityDoc.data() as Map<String, dynamic>;
-      final dayOfWeek = _getDayOfWeek(dateTime.weekday);
-      final dayData = availabilityData[dayOfWeek] as Map<String, dynamic>?;
-
-      if (dayData == null || dayData['isAvailable'] != true) return false;
-
-      final startTime = _parseTime(dayData['startTime'] as String);
-      final endTime = _parseTime(dayData['endTime'] as String);
-      final appointmentTime = TimeOfDay.fromDateTime(dateTime);
-
-      return _isTimeInRange(appointmentTime, startTime, endTime);
-    } catch (e) {
-      debugPrint('❌ Erro ao validar horário comercial: $e');
-      return false;
-    }
-  }
-
-  // ========== MÉTODOS AUXILIARES ==========
-
-  String _getDayOfWeek(int weekday) {
-    const days = [
-      'monday', 'tuesday', 'wednesday', 'thursday',
-      'friday', 'saturday', 'sunday'
-    ];
-    return days[weekday - 1];
-  }
-
-  TimeOfDay _parseTime(String timeString) {
-    final parts = timeString.split(':');
-    return TimeOfDay(
-      hour: int.parse(parts[0]),
-      minute: int.parse(parts[1]),
-    );
-  }
-
-  bool _isTimeInRange(TimeOfDay time, TimeOfDay start, TimeOfDay end) {
-    final timeMinutes = time.hour * 60 + time.minute;
-    final startMinutes = start.hour * 60 + start.minute;
-    final endMinutes = end.hour * 60 + end.minute;
-
-    return timeMinutes >= startMinutes && timeMinutes <= endMinutes;
-  }
-
-  // ========== MÉTODOS DE RELATÓRIOS ==========
-
-  Future<Map<String, dynamic>> generateMonthlyReport(String mediumId, int year, int month) async {
-    try {
-      final startDate = DateTime(year, month, 1);
-      final endDate = DateTime(year, month + 1, 0, 23, 59, 59);
-
-      final appointments = await getMediumAppointmentsInPeriod(mediumId, startDate, endDate);
-      final earnings = await getMediumEarningsInPeriod(mediumId, startDate, endDate);
-
-      int totalAppointments = appointments.docs.length;
-      int completedAppointments = 0;
-      int canceledAppointments = 0;
-      double totalEarnings = 0;
-      Map<String, int> appointmentsByDay = {};
-      Map<String, double> earningsByDay = {};
-
-      for (final doc in appointments.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        final status = data['status'] as String;
-        final dateTime = (data['dateTime'] as Timestamp).toDate();
-        final dayKey = '${dateTime.day.toString().padLeft(2, '0')}';
-
-        appointmentsByDay[dayKey] = (appointmentsByDay[dayKey] ?? 0) + 1;
-
-        if (status == 'completed') completedAppointments++;
-        if (status == 'canceled') canceledAppointments++;
-      }
-
-      for (final doc in earnings.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        final amount = (data['amount'] ?? 0.0).toDouble();
-        final date = (data['date'] as Timestamp).toDate();
-        final dayKey = '${date.day.toString().padLeft(2, '0')}';
-
-        totalEarnings += amount;
-        earningsByDay[dayKey] = (earningsByDay[dayKey] ?? 0) + amount;
-      }
-
-      return {
-        'period': '$month/$year',
-        'totalAppointments': totalAppointments,
-        'completedAppointments': completedAppointments,
-        'canceledAppointments': canceledAppointments,
-        'completionRate': totalAppointments > 0 ? (completedAppointments / totalAppointments) * 100 : 0,
-        'totalEarnings': totalEarnings,
-        'averageEarningsPerAppointment': completedAppointments > 0 ? totalEarnings / completedAppointments : 0,
-        'appointmentsByDay': appointmentsByDay,
-        'earningsByDay': earningsByDay,
-        'generatedAt': DateTime.now(),
-      };
-    } catch (e) {
-      debugPrint('❌ Erro ao gerar relatório mensal: $e');
-      return {};
-    }
-  }
-
-  Future<Map<String, dynamic>> generatePerformanceReport(String mediumId) async {
-    try {
-      final now = DateTime.now();
-      final last30Days = now.subtract(const Duration(days: 30));
-      final last7Days = now.subtract(const Duration(days: 7));
-
-      final stats = await getDashboardStats(mediumId);
-      final recent30DaysAppointments = await getMediumAppointmentsInPeriod(mediumId, last30Days, now);
-      final recent7DaysAppointments = await getMediumAppointmentsInPeriod(mediumId, last7Days, now);
-
-      int responsiveAppointments = 0;
-      int totalResponseTime = 0;
-
-      for (final doc in recent30DaysAppointments.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        final createdAt = (data['createdAt'] as Timestamp).toDate();
-        final updatedAt = (data['updatedAt'] as Timestamp).toDate();
-        final status = data['status'] as String;
-
-        if (status == 'confirmed' || status == 'canceled') {
-          responsiveAppointments++;
-          totalResponseTime += updatedAt.difference(createdAt).inHours;
-        }
-      }
-
-      final averageResponseTime = responsiveAppointments > 0 ? totalResponseTime / responsiveAppointments : 0;
-
-      return {
-        'performancePeriod': '30 dias',
-        'totalAppointments': stats['totalAppointments'] ?? 0,
-        'completionRate': stats['completionRate'] ?? 0,
-        'averageRating': stats['averageRating'] ?? 0,
-        'totalEarnings': stats['totalEarnings'] ?? 0,
-        'last30DaysAppointments': recent30DaysAppointments.docs.length,
-        'last7DaysAppointments': recent7DaysAppointments.docs.length,
-        'averageResponseTimeHours': averageResponseTime,
-        'recommendations': _generateRecommendations(stats),
-        'generatedAt': DateTime.now(),
-      };
-    } catch (e) {
-      debugPrint('❌ Erro ao gerar relatório de performance: $e');
-      return {};
-    }
-  }
-
-  List<String> _generateRecommendations(Map<String, dynamic> stats) {
-    final recommendations = <String>[];
-    final completionRate = stats['completionRate'] ?? 0;
-    final averageRating = stats['averageRating'] ?? 0;
-    final totalAppointments = stats['totalAppointments'] ?? 0;
-
-    if (completionRate < 80) {
-      recommendations.add('Considere melhorar sua taxa de conclusão de consultas');
-    }
-
-    if (averageRating < 4.0) {
-      recommendations.add('Foque em melhorar a qualidade do atendimento para aumentar sua avaliação');
-    }
-
-    if (totalAppointments < 10) {
-      recommendations.add('Considere expandir sua disponibilidade para atrair mais clientes');
-    }
-
-    if (recommendations.isEmpty) {
-      recommendations.add('Parabéns! Sua performance está excelente');
-    }
-
-    return recommendations;
-  }
-
-  // ========== MÉTODO DE SINCRONIZAÇÃO ==========
-
-  Future<void> syncOfflineData(List<Map<String, dynamic>> offlineData) async {
-    try {
       final batch = _firestore.batch();
-
-      for (final data in offlineData) {
-        final collection = data['collection'] as String;
-        final docId = data['docId'] as String?;
-        final docData = data['data'] as Map<String, dynamic>;
-        final operation = data['operation'] as String; // 'create', 'update', 'delete'
-
-        DocumentReference docRef;
-        if (docId != null) {
-          docRef = _firestore.collection(collection).doc(docId);
-        } else {
-          docRef = _firestore.collection(collection).doc();
-        }
-
-        switch (operation) {
-          case 'create':
-            batch.set(docRef, docData);
-            break;
-          case 'update':
-            batch.update(docRef, docData);
-            break;
-          case 'delete':
-            batch.delete(docRef);
-            break;
-        }
+      for (final doc in oldNotifications.docs) {
+        batch.delete(doc.reference);
       }
 
       await batch.commit();
-      debugPrint('✅ Sincronização offline concluída: ${offlineData.length} operações');
+      debugPrint('✅ ${oldNotifications.docs.length} notificações antigas removidas');
     } catch (e) {
-      debugPrint('❌ Erro na sincronização offline: $e');
-      throw Exception('Erro ao sincronizar dados offline');
+      debugPrint('❌ Erro ao limpar notificações antigas: $e');
     }
   }
 
-  // ========== MÉTODOS DE HEALTH CHECK ==========
-
-  Future<bool> checkFirebaseHealth() async {
+  Future<void> cleanupOrphanedImages() async {
     try {
-      await _firestore.collection('health_check').limit(1).get();
-      return true;
+      // Implementar lógica para remover imagens órfãs
+      // Esta é uma operação complexa que requer análise cuidadosa
+      debugPrint('⚠️ Limpeza de imagens órfãs não implementada ainda');
     } catch (e) {
-      debugPrint('❌ Firebase Health Check falhou: $e');
+      debugPrint('❌ Erro ao limpar imagens órfãs: $e');
+    }
+  }
+
+  // ========== MÉTODOS DE VALIDAÇÃO ==========
+
+  bool isValidEmail(String email) {
+    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}
+    ).hasMatch(email);
+  }
+
+  bool isValidPhoneNumber(String phone) {
+    final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
+    return cleanPhone.length >= 10 && cleanPhone.length <= 15;
+  }
+
+  bool isValidUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      return uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https');
+    } catch (e) {
       return false;
     }
   }
 
-  Future<Map<String, dynamic>> getSystemStatus() async {
-    try {
-      final isFirebaseHealthy = await checkFirebaseHealth();
-      final currentUser = _auth.currentUser;
+  // ========== MÉTODOS DE CONEXÃO ==========
 
-      return {
-        'firebaseHealthy': isFirebaseHealthy,
-        'userAuthenticated': currentUser != null,
-        'userId': currentUser?.uid,
-        'timestamp': DateTime.now().toIso8601String(),
-      };
+  Future<bool> checkConnection() async {
+    try {
+      await _firestore.runTransaction((transaction) async {
+        // Transação vazia apenas para testar conectividade
+      });
+      return true;
     } catch (e) {
-      debugPrint('❌ Erro ao verificar status do sistema: $e');
-      return {
-        'firebaseHealthy': false,
-        'userAuthenticated': false,
-        'error': e.toString(),
-        'timestamp': DateTime.now().toIso8601String(),
-      };
+      debugPrint('❌ Sem conexão com Firebase: $e');
+      return false;
+    }
+  }
+
+  void enableOfflinePersistence() {
+    try {
+      _firestore.enablePersistence();
+      debugPrint('✅ Persistência offline habilitada');
+    } catch (e) {
+      debugPrint('❌ Erro ao habilitar persistência offline: $e');
+    }
+  }
+
+  // ========== GETTERS DE CONVENIÊNCIA ==========
+
+  bool get isUserAuthenticated => _auth.currentUser != null;
+  String get currentUserId => _auth.currentUser?.uid ?? '';
+  String get currentUserEmail => _auth.currentUser?.email ?? '';
+  String get currentUserDisplayName => _auth.currentUser?.displayName ?? '';
+  String? get currentUserPhotoURL => _auth.currentUser?.photoURL;
+
+  // ========== MÉTODOS DE DEBUG ==========
+
+  void logUserInfo() {
+    final user = _auth.currentUser;
+    if (user != null) {
+      debugPrint('=== USER INFO ===');
+      debugPrint('UID: ${user.uid}');
+      debugPrint('Email: ${user.email}');
+      debugPrint('Display Name: ${user.displayName}');
+      debugPrint('Photo URL: ${user.photoURL}');
+      debugPrint('Email Verified: ${user.emailVerified}');
+      debugPrint('Created: ${user.metadata.creationTime}');
+      debugPrint('Last Sign In: ${user.metadata.lastSignInTime}');
+      debugPrint('================');
+    } else {
+      debugPrint('❌ Nenhum usuário autenticado');
+    }
+  }
+
+  Future<void> testFirestoreConnection() async {
+    try {
+      debugPrint('🔄 Testando conexão com Firestore...');
+      final testDoc = await _firestore.collection('test').doc('connection').get();
+      debugPrint('✅ Conexão com Firestore funcionando');
+    } catch (e) {
+      debugPrint('❌ Erro na conexão com Firestore: $e');
+    }
+  }
+
+  Future<void> testStorageConnection() async {
+    try {
+      debugPrint('🔄 Testando conexão com Storage...');
+      final ref = _storage.ref().child('test/connection.txt');
+      await ref.getDownloadURL();
+      debugPrint('✅ Conexão com Storage funcionando');
+    } catch (e) {
+      debugPrint('❌ Erro na conexão com Storage: $e');
     }
   }
 }
