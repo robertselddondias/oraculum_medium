@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:get/get.dart';
+import 'package:oraculum_medium/config/routes.dart';
 import 'package:oraculum_medium/config/theme.dart';
 import 'package:oraculum_medium/controllers/auth_controller.dart';
 import 'package:oraculum_medium/controllers/settings_controller.dart';
