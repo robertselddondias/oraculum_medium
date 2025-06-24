@@ -405,182 +405,7 @@ class EarningsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLineChart(EarningsController controller, bool isLargeScreen) {
-    final chartData = _generateChartData(controller);
 
-    if (chartData.isEmpty) {
-      return _buildEmptyChart(isLargeScreen);
-    }
-
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: chartData.isNotEmpty ? _calculateInterval(chartData) : 100,
-          getDrawingHorizontalLine: (value) {
-            return const FlLine(
-              color: Colors.white12,
-              strokeWidth: 1,
-            );
-          },
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          rightTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          topTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 30,
-              interval: 1,
-              getTitlesWidget: (double value, TitleMeta meta) {
-                return _buildBottomTitle(value.toInt(), controller);
-              },
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: chartData.isNotEmpty ? _calculateInterval(chartData) : 100,
-              reservedSize: isLargeScreen ? 50 : 40,
-              getTitlesWidget: (double value, TitleMeta meta) {
-                return _buildLeftTitle(value);
-              },
-            ),
-          ),
-        ),
-        borderData: FlBorderData(
-          show: false,
-        ),
-        minX: 0,
-        maxX: chartData.length.toDouble() - 1,
-        minY: 0,
-        maxY: chartData.isNotEmpty ? _calculateMaxY(chartData) : 1000,
-        lineBarsData: [
-          // Linha dos ganhos líquidos (80%)
-          LineChartBarData(
-            spots: chartData.asMap().entries.map((entry) {
-              return FlSpot(entry.key.toDouble(), entry.value['mediumAmount']!);
-            }).toList(),
-            isCurved: true,
-            gradient: LinearGradient(
-              colors: [
-                const Color(0xFF00C851),
-                const Color(0xFF00C851).withOpacity(0.7),
-              ],
-            ),
-            barWidth: 3,
-            isStrokeCapRound: true,
-            dotData: const FlDotData(
-              show: true,
-            ),
-            belowBarData: BarAreaData(
-              show: true,
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  const Color(0xFF00C851).withOpacity(0.3),
-                  const Color(0xFF00C851).withOpacity(0.1),
-                ],
-              ),
-            ),
-          ),
-          // Linha das comissões (20%)
-          LineChartBarData(
-            spots: chartData.asMap().entries.map((entry) {
-              return FlSpot(entry.key.toDouble(), entry.value['oraculumAmount']!);
-            }).toList(),
-            isCurved: true,
-            gradient: LinearGradient(
-              colors: [
-                Colors.orange,
-                Colors.orange.withOpacity(0.7),
-              ],
-            ),
-            barWidth: 2,
-            isStrokeCapRound: true,
-            dotData: const FlDotData(
-              show: true,
-            ),
-            dashArray: [5, 5],
-          ),
-        ],
-        lineTouchData: LineTouchData(
-          enabled: true,
-          touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) => AppTheme.surfaceColor,
-            tooltipPadding: const EdgeInsets.all(8),
-            tooltipMargin: 8,
-            getTooltipItems: (touchedSpots) {
-              return touchedSpots.map((LineBarSpot touchedSpot) {
-                final spotIndex = touchedSpot.spotIndex;
-                final barIndex = touchedSpot.barIndex;
-
-                if (spotIndex >= 0 && spotIndex < chartData.length) {
-                  final data = chartData[spotIndex];
-                  final isMainLine = barIndex == 0;
-
-                  if (isMainLine) {
-                    return LineTooltipItem(
-                      'Seus Ganhos\nR\$ ${data['mediumAmount']!.toStringAsFixed(2)}\n${data['date']}',
-                      const TextStyle(
-                        color: Color(0xFF00C851),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    );
-                  } else {
-                    return LineTooltipItem(
-                      'Comissão Oraculum\nR\$ ${data['oraculumAmount']!.toStringAsFixed(2)}\n${data['date']}',
-                      const TextStyle(
-                        color: Colors.orange,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    );
-                  }
-                }
-                return null;
-              }).where((item) => item != null).cast<LineTooltipItem>().toList();
-            },
-          ),
-          getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
-            return spotIndexes.map((spotIndex) {
-              return TouchedSpotIndicatorData(
-                const FlLine(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                  dashArray: [3, 3],
-                ),
-                FlDotData(
-                  show: true,
-                  getDotPainter: (spot, percent, barData, index) {
-                    final color = barData.gradient?.colors.first ??
-                        barData.color ??
-                        const Color(0xFF00C851);
-                    return FlDotCirclePainter(
-                      radius: 6,
-                      color: Colors.white,
-                      strokeWidth: 2,
-                      strokeColor: color,
-                    );
-                  },
-                ),
-              );
-            }).toList();
-          },
-          handleBuiltInTouches: true,
-          touchSpotThreshold: 10,
-        ),
-      ),
-    );
-  }
 
   Widget _buildEmptyChart(bool isLargeScreen) {
     return Container(
@@ -674,119 +499,6 @@ class EarningsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBottomTitle(int index, EarningsController controller) {
-    final chartData = _generateChartData(controller);
-    if (index < 0 || index >= chartData.length) {
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Text(
-        chartData[index]['shortDate']!,
-        style: const TextStyle(
-          color: Colors.white60,
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLeftTitle(double value) {
-    if (value == 0) return const SizedBox.shrink();
-
-    return Text(
-      'R\${(value / 1).toInt()}',
-      style: const TextStyle(
-        color: Colors.white60,
-        fontSize: 10,
-        fontWeight: FontWeight.w500,
-      ),
-    );
-  }
-
-  List<Map<String, dynamic>> _generateChartData(EarningsController controller) {
-    final earnings = controller.earningsHistory;
-
-    // Se não há dados reais, gerar dados de exemplo
-    if (earnings.isEmpty) {
-      return _generateSampleChartData();
-    }
-
-    // Agrupar ganhos por dia
-    final Map<String, Map<String, dynamic>> dailyEarnings = {};
-
-    for (final earning in earnings) {
-      final date = earning['date']?.toDate() ?? DateTime.now();
-      final dateKey = DateFormat('yyyy-MM-dd').format(date);
-      final mediumAmount = (earning['mediumAmount'] ?? 0.0).toDouble();
-      final oraculumAmount = (earning['oraculumAmount'] ?? 0.0).toDouble();
-
-      if (dailyEarnings.containsKey(dateKey)) {
-        dailyEarnings[dateKey]!['mediumAmount'] =
-            (dailyEarnings[dateKey]!['mediumAmount'] as double) + mediumAmount;
-        dailyEarnings[dateKey]!['oraculumAmount'] =
-            (dailyEarnings[dateKey]!['oraculumAmount'] as double) + oraculumAmount;
-      } else {
-        dailyEarnings[dateKey] = {
-          'mediumAmount': mediumAmount,
-          'oraculumAmount': oraculumAmount,
-          'dateTime': date,
-        };
-      }
-    }
-
-    // Converter para lista e ordenar por data
-    final sortedEntries = dailyEarnings.entries.toList();
-    sortedEntries.sort((a, b) {
-      final dateA = a.value['dateTime'] as DateTime;
-      final dateB = b.value['dateTime'] as DateTime;
-      return dateA.compareTo(dateB);
-    });
-
-    final chartData = sortedEntries.map((entry) {
-      final date = entry.value['dateTime'] as DateTime;
-      return {
-        'date': DateFormat('dd/MM').format(date),
-        'shortDate': DateFormat('dd').format(date),
-        'mediumAmount': entry.value['mediumAmount'] as double,
-        'oraculumAmount': entry.value['oraculumAmount'] as double,
-        'fullDate': date,
-      };
-    }).toList();
-
-    // Pegar apenas os últimos 10 pontos para melhor visualização
-    final recentData = chartData.length > 10
-        ? chartData.sublist(chartData.length - 10)
-        : chartData;
-
-    return recentData;
-  }
-
-  List<Map<String, dynamic>> _generateSampleChartData() {
-    final sampleData = <Map<String, dynamic>>[];
-    final now = DateTime.now();
-
-    // Gerar 7 dias de dados de exemplo
-    for (int i = 6; i >= 0; i--) {
-      final date = now.subtract(Duration(days: i));
-      final baseAmount = 80.0 + (i * 15) + (DateTime.now().millisecond % 50);
-      final totalAmount = baseAmount / 0.8; // Valor bruto
-      final mediumAmount = totalAmount * 0.8; // 80% para o médium
-      final oraculumAmount = totalAmount * 0.2; // 20% para o Oraculum
-
-      sampleData.add({
-        'date': DateFormat('dd/MM').format(date),
-        'shortDate': DateFormat('dd').format(date),
-        'mediumAmount': mediumAmount,
-        'oraculumAmount': oraculumAmount,
-        'fullDate': date,
-      });
-    }
-
-    return sampleData;
-  }
 
   double _calculateMaxY(List<Map<String, dynamic>> data) {
     double maxValue = 0;
@@ -1162,5 +874,271 @@ class EarningsScreen extends StatelessWidget {
   void _showDatePicker() {
     // Implementar seleção de data personalizada
     Get.back();
+  }
+
+  Widget _buildLineChart(EarningsController controller, bool isLargeScreen) {
+    final chartData = _generateChartData(controller);
+
+    if (chartData.isEmpty) {
+      return _buildEmptyChart(isLargeScreen);
+    }
+
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: chartData.isNotEmpty ? _calculateInterval(chartData) : 100,
+          getDrawingHorizontalLine: (value) {
+            return const FlLine(
+              color: Colors.white12,
+              strokeWidth: 1,
+            );
+          },
+        ),
+        titlesData: FlTitlesData(
+          show: true,
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              interval: 1,
+              getTitlesWidget: (double value, TitleMeta meta) {
+                return _buildBottomTitle(value.toInt(), controller);
+              },
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: chartData.isNotEmpty ? _calculateInterval(chartData) : 100,
+              reservedSize: isLargeScreen ? 50 : 40,
+              getTitlesWidget: (double value, TitleMeta meta) {
+                return _buildLeftTitle(value);
+              },
+            ),
+          ),
+        ),
+        borderData: FlBorderData(
+          show: false,
+        ),
+        minX: 0,
+        maxX: chartData.length.toDouble() - 1,
+        minY: 0,
+        maxY: chartData.isNotEmpty ? _calculateMaxY(chartData) : 1000,
+        lineBarsData: [
+          LineChartBarData(
+            spots: chartData.asMap().entries.map((entry) {
+              return FlSpot(entry.key.toDouble(), entry.value['mediumAmount']!);
+            }).toList(),
+            isCurved: true,
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFF00C851),
+                const Color(0xFF00C851).withOpacity(0.7),
+              ],
+            ),
+            barWidth: 3,
+            isStrokeCapRound: true,
+            dotData: const FlDotData(
+              show: true,
+            ),
+            belowBarData: BarAreaData(
+              show: true,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  const Color(0xFF00C851).withOpacity(0.3),
+                  const Color(0xFF00C851).withOpacity(0.1),
+                ],
+              ),
+            ),
+          ),
+          LineChartBarData(
+            spots: chartData.asMap().entries.map((entry) {
+              return FlSpot(entry.key.toDouble(), entry.value['oraculumAmount']!);
+            }).toList(),
+            isCurved: true,
+            color: Colors.orange,
+            barWidth: 2,
+            isStrokeCapRound: true,
+            dashArray: [5, 5],
+            dotData: const FlDotData(
+              show: true,
+            ),
+          ),
+        ],
+        lineTouchData: LineTouchData(
+          enabled: true,
+          touchTooltipData: LineTouchTooltipData(
+            getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+              return touchedBarSpots.map((barSpot) {
+                final flSpot = barSpot;
+                final index = flSpot.x.toInt();
+                if (index >= 0 && index < chartData.length) {
+                  final data = chartData[index];
+                  final isMainLine = barSpot.barIndex == 0;
+                  final value = isMainLine ?
+                  data['mediumAmount']! :
+                  data['oraculumAmount']!;
+                  final label = isMainLine ?
+                  'Seus Ganhos' :
+                  'Comissão Oraculum';
+
+                  return LineTooltipItem(
+                    '$label\n${data['date']}\nR\$ ${value.toStringAsFixed(2)}',
+                    TextStyle(
+                      color: isMainLine ? const Color(0xFF00C851) : Colors.orange,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  );
+                }
+                return null;
+              }).toList();
+            },
+          ),
+          getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
+            return spotIndexes.map((spotIndex) {
+              final color = barData.gradient?.colors.first ??
+                  barData.color ??
+                  const Color(0xFF00C851);
+              return TouchedSpotIndicatorData(
+                FlLine(
+                  color: color.withOpacity(0.5),
+                  strokeWidth: 2,
+                ),
+                FlDotData(
+                  show: true,
+                  getDotPainter: (spot, percent, barData, index) {
+                    final color = barData.gradient?.colors.first ??
+                        barData.color ??
+                        const Color(0xFF00C851);
+                    return FlDotCirclePainter(
+                      radius: 6,
+                      color: Colors.white,
+                      strokeWidth: 2,
+                      strokeColor: color,
+                    );
+                  },
+                ),
+              );
+            }).toList();
+          },
+          handleBuiltInTouches: true,
+          touchSpotThreshold: 10,
+        ),
+      ),
+    );
+  }
+
+  List<Map<String, dynamic>> _generateChartData(EarningsController controller) {
+    final earnings = controller.earningsHistory;
+
+    if (earnings.isEmpty) {
+      return _generateSampleChartData();
+    }
+
+    final Map<String, Map<String, dynamic>> dailyEarnings = {};
+
+    for (final earning in earnings) {
+      final date = earning['date']?.toDate() ?? DateTime.now();
+      final dateKey = DateFormat('yyyy-MM-dd').format(date);
+      final mediumAmount = (earning['mediumAmount'] ?? 0.0).toDouble();
+      final oraculumAmount = (earning['oraculumAmount'] ?? 0.0).toDouble();
+
+      if (dailyEarnings.containsKey(dateKey)) {
+        dailyEarnings[dateKey]!['mediumAmount'] =
+            (dailyEarnings[dateKey]!['mediumAmount'] as double) + mediumAmount;
+        dailyEarnings[dateKey]!['oraculumAmount'] =
+            (dailyEarnings[dateKey]!['oraculumAmount'] as double) + oraculumAmount;
+      } else {
+        dailyEarnings[dateKey] = {
+          'mediumAmount': mediumAmount,
+          'oraculumAmount': oraculumAmount,
+          'dateTime': date,
+        };
+      }
+    }
+
+    final sortedEntries = dailyEarnings.entries.toList();
+    sortedEntries.sort((a, b) {
+      final dateA = a.value['dateTime'] as DateTime;
+      final dateB = b.value['dateTime'] as DateTime;
+      return dateA.compareTo(dateB);
+    });
+
+    final chartData = sortedEntries.map((entry) {
+      final date = entry.value['dateTime'] as DateTime;
+      return {
+        'date': DateFormat('dd/MM').format(date),
+        'shortDate': DateFormat('dd').format(date),
+        'mediumAmount': entry.value['mediumAmount'] as double,
+        'oraculumAmount': entry.value['oraculumAmount'] as double,
+        'fullDate': date,
+      };
+    }).toList();
+
+    final recentData = chartData.length > 10
+        ? chartData.sublist(chartData.length - 10)
+        : chartData;
+
+    return recentData;
+  }
+
+  List<Map<String, dynamic>> _generateSampleChartData() {
+    final sampleData = <Map<String, dynamic>>[];
+    final now = DateTime.now();
+
+    for (int i = 6; i >= 0; i--) {
+      final date = now.subtract(Duration(days: i));
+      final baseAmount = 80.0 + (i * 15) + (DateTime.now().millisecond % 50);
+      final totalAmount = baseAmount / 0.8;
+      final mediumAmount = totalAmount * 0.8;
+      final oraculumAmount = totalAmount * 0.2;
+
+      sampleData.add({
+        'date': DateFormat('dd/MM').format(date),
+        'shortDate': DateFormat('dd').format(date),
+        'mediumAmount': mediumAmount,
+        'oraculumAmount': oraculumAmount,
+        'fullDate': date,
+      });
+    }
+
+    return sampleData;
+  }
+
+  Widget _buildBottomTitle(int value, EarningsController controller) {
+    final chartData = _generateChartData(controller);
+    if (value >= 0 && value < chartData.length) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8.0),
+        child: Text(
+          chartData[value]['shortDate'] ?? '',
+          style: const TextStyle(
+            color: Colors.white60,
+            fontSize: 10,
+          ),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildLeftTitle(double value) {
+    return Text(
+      'R\$ ${value.toInt()}',
+      style: const TextStyle(
+        color: Colors.white60,
+        fontSize: 10,
+      ),
+    );
   }
 }
