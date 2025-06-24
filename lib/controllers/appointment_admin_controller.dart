@@ -245,42 +245,6 @@ class AppointmentAdminController extends GetxController {
     }
   }
 
-  Future<bool> completeAppointment(String appointmentId, {String? notes}) async {
-    try {
-      debugPrint('=== completeAppointment() ===');
-      debugPrint('Appointment ID: $appointmentId');
-
-      final success = await _mediumService.updateAppointmentStatus(appointmentId, 'completed');
-
-      if (success) {
-        final appointment = allAppointments.firstWhereOrNull((apt) => apt.id == appointmentId);
-        if (appointment != null && currentMediumId != null) {
-          await _mediumService.recordEarning(
-            currentMediumId!,
-            appointment.amount,
-            appointmentId,
-          );
-        }
-
-        _updateAppointmentInList(appointmentId, 'completed');
-        Get.snackbar(
-          'Consulta Finalizada',
-          'A consulta foi marcada como concluída',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
-      } else {
-        Get.snackbar('Erro', 'Não foi possível finalizar a consulta');
-      }
-
-      return success;
-    } catch (e) {
-      debugPrint('❌ Erro ao finalizar consulta: $e');
-      Get.snackbar('Erro', 'Erro ao finalizar consulta: $e');
-      return false;
-    }
-  }
-
   Future<bool> rescheduleAppointment(String appointmentId, DateTime newDateTime) async {
     try {
       debugPrint('=== rescheduleAppointment() ===');
@@ -385,5 +349,42 @@ class AppointmentAdminController extends GetxController {
     selectedFilter.value = 'all';
     searchQuery.value = '';
     selectedDate.value = null;
+  }
+
+  Future<bool> completeAppointment(String appointmentId, {String? notes}) async {
+    try {
+      debugPrint('=== completeAppointment() ===');
+      debugPrint('Appointment ID: $appointmentId');
+
+      final success = await _mediumService.updateAppointmentStatus(appointmentId, 'completed');
+
+      if (success) {
+        final appointment = allAppointments.firstWhereOrNull((apt) => apt.id == appointmentId);
+        if (appointment != null && currentMediumId != null) {
+          await _mediumService.recordEarning(
+            currentMediumId!,
+            appointment.amount,
+            appointmentId,
+          );
+        }
+
+        _updateAppointmentInList(appointmentId, 'completed');
+        Get.snackbar(
+          'Consulta Finalizada',
+          'A consulta foi marcada como concluída e o valor foi adicionado à sua carteira (80% - após desconto de 20% para o Oraculum)',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          duration: Duration(seconds: 4),
+        );
+      } else {
+        Get.snackbar('Erro', 'Não foi possível finalizar a consulta');
+      }
+
+      return success;
+    } catch (e) {
+      debugPrint('❌ Erro ao finalizar consulta: $e');
+      Get.snackbar('Erro', 'Erro ao finalizar consulta: $e');
+      return false;
+    }
   }
 }

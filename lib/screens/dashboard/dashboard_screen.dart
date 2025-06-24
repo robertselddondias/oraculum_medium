@@ -48,6 +48,8 @@ class DashboardScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildHeader(authController, controller, isLargeScreen),
+                      SizedBox(height: isLargeScreen ? 24 : 20),
+                      _buildWalletCard(controller, isLargeScreen),
                       SizedBox(height: isLargeScreen ? 32 : 24),
                       _buildStatusCard(controller, isLargeScreen),
                       SizedBox(height: isLargeScreen ? 32 : 24),
@@ -123,20 +125,334 @@ class DashboardScreen extends StatelessWidget {
         ),
         GestureDetector(
           onTap: () => Get.toNamed(AppRoutes.profile),
-          child: Container(
-            width: isLargeScreen ? 56 : 48,
-            height: isLargeScreen ? 56 : 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white24, width: 2),
-              image: const DecorationImage(
-                image: AssetImage('assets/images/default_avatar.png'),
-                fit: BoxFit.cover,
+          child: Obx(() {
+            final user = authController.currentUser.value;
+            return Container(
+              width: isLargeScreen ? 56 : 48,
+              height: isLargeScreen ? 56 : 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white24, width: 2),
+                image: user?.photoURL != null
+                    ? DecorationImage(
+                  image: NetworkImage(user!.photoURL!),
+                  fit: BoxFit.cover,
+                )
+                    : const DecorationImage(
+                  image: AssetImage('assets/images/default_avatar.png'),
+                  fit: BoxFit.cover,
+                ),
               ),
-            ),
-          ).animate().scale(
+            );
+          }).animate().scale(
             delay: const Duration(milliseconds: 400),
             duration: const Duration(milliseconds: 400),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWalletCard(DashboardController controller, bool isLargeScreen) {
+    return Container(
+      padding: EdgeInsets.all(isLargeScreen ? 24 : 20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF00C851),
+            const Color(0xFF007E33),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00C851).withOpacity(0.4),
+            blurRadius: 25,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.account_balance_wallet,
+                        color: Colors.white,
+                        size: isLargeScreen ? 20 : 18,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Carteira Digital',
+                        style: TextStyle(
+                          fontSize: isLargeScreen ? 16 : 14,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: isLargeScreen ? 12 : 10),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isLargeScreen ? 16 : 14,
+                      vertical: isLargeScreen ? 8 : 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Obx(() => Text(
+                      'R\$ ${controller.walletBalance.value.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: isLargeScreen ? 36 : 32,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: 1.0,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withOpacity(0.3),
+                            offset: const Offset(0, 2),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                    )),
+                  ),
+                  SizedBox(height: isLargeScreen ? 6 : 4),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Saldo disponível',
+                      style: TextStyle(
+                        fontSize: isLargeScreen ? 12 : 10,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              GestureDetector(
+                onTap: () => Get.toNamed(AppRoutes.earnings),
+                child: Container(
+                  padding: EdgeInsets.all(isLargeScreen ? 16 : 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.trending_up,
+                        color: Colors.white,
+                        size: isLargeScreen ? 28 : 24,
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Ver\nDetalhes',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: isLargeScreen ? 10 : 9,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: isLargeScreen ? 20 : 16),
+          _buildWalletStats(controller, isLargeScreen),
+          SizedBox(height: isLargeScreen ? 16 : 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => Get.toNamed(AppRoutes.earnings),
+                  icon: Icon(
+                    Icons.history,
+                    size: isLargeScreen ? 18 : 16,
+                  ),
+                  label: Text(
+                    'Ver Histórico',
+                    style: TextStyle(
+                      fontSize: isLargeScreen ? 14 : 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF007E33),
+                    elevation: 3,
+                    padding: EdgeInsets.symmetric(
+                      vertical: isLargeScreen ? 12 : 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: isLargeScreen ? 12 : 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _showWalletInfo(),
+                  icon: Icon(
+                    Icons.info_outline,
+                    size: isLargeScreen ? 18 : 16,
+                  ),
+                  label: Text(
+                    'Como Funciona',
+                    style: TextStyle(
+                      fontSize: isLargeScreen ? 14 : 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white, width: 2),
+                    padding: EdgeInsets.symmetric(
+                      vertical: isLargeScreen ? 12 : 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ).animate().fadeIn(
+      delay: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 600),
+    ).slideY(
+      begin: 0.2,
+      end: 0,
+      duration: const Duration(milliseconds: 500),
+    );
+  }
+
+  Widget _buildWalletStats(DashboardController controller, bool isLargeScreen) {
+    return Obx(() {
+      final stats = controller.stats.value;
+      if (stats == null) return const SizedBox.shrink();
+
+      return Container(
+        padding: EdgeInsets.all(isLargeScreen ? 16 : 14),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: _buildWalletStatItem(
+                'Este Mês',
+                'R\$ ${stats.monthlyEarnings.toStringAsFixed(2)}',
+                Icons.calendar_today,
+                isLargeScreen,
+              ),
+            ),
+            Container(
+              width: 2,
+              height: isLargeScreen ? 45 : 40,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+            Expanded(
+              child: _buildWalletStatItem(
+                'Total Ganho',
+                'R\$ ${stats.totalEarnings.toStringAsFixed(2)}',
+                Icons.trending_up,
+                isLargeScreen,
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildWalletStatItem(String label, String value, IconData icon, bool isLargeScreen) {
+    return Column(
+      children: [
+        Icon(
+          icon,
+          color: Colors.white,
+          size: isLargeScreen ? 22 : 20,
+        ),
+        SizedBox(height: isLargeScreen ? 8 : 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isLargeScreen ? 12 : 10,
+            color: Colors.white.withOpacity(0.9),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        SizedBox(height: 4),
+        Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 2,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: isLargeScreen ? 16 : 14,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withOpacity(0.3),
+                  offset: const Offset(0, 1),
+                  blurRadius: 2,
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -162,29 +478,15 @@ class DashboardScreen extends StatelessWidget {
           ),
           SizedBox(width: isLargeScreen ? 16 : 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Status: ${controller.getStatusText()}',
-                  style: TextStyle(
-                    fontSize: isLargeScreen ? 18 : 16,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                StatsCard(
-                  title: 'Ganhos',
-                  value: 'R\$ ${controller.totalTodayEarnings}',
-                  subtitle: 'hoje',
-                  icon: Icons.attach_money,
-                  color: AppTheme.successColor,
-                ),
-              ],
+            child: Text(
+              'Status: ${controller.getStatusText()}',
+              style: TextStyle(
+                fontSize: isLargeScreen ? 18 : 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+              ),
             ),
           ),
-          const Spacer(),
           Switch(
             value: controller.isOnline.value,
             onChanged: (_) => controller.toggleOnlineStatus(),
@@ -209,13 +511,13 @@ class DashboardScreen extends StatelessWidget {
       return Row(
         children: [
           Expanded(
-            child: StatsCard(
+            child: Obx(() => StatsCard(
               title: 'Hoje',
-              value: '${controller.todayCount}',
+              value: '${controller.todayAppointments.length}',
               subtitle: 'consultas',
               icon: Icons.today,
               color: AppTheme.primaryColor,
-            ).animate().fadeIn(
+            )).animate().fadeIn(
               delay: const Duration(milliseconds: 500),
               duration: const Duration(milliseconds: 500),
             ).slideY(
@@ -226,13 +528,13 @@ class DashboardScreen extends StatelessWidget {
           ),
           SizedBox(width: spacing),
           Expanded(
-            child: StatsCard(
+            child: Obx(() => StatsCard(
               title: 'Pendentes',
-              value: '${controller.pendingCount}',
+              value: '${controller.pendingAppointments.length}',
               subtitle: 'aguardando',
               icon: Icons.pending_actions,
               color: AppTheme.warningColor,
-            ).animate().fadeIn(
+            )).animate().fadeIn(
               delay: const Duration(milliseconds: 600),
               duration: const Duration(milliseconds: 500),
             ).slideY(
@@ -243,13 +545,13 @@ class DashboardScreen extends StatelessWidget {
           ),
           SizedBox(width: spacing),
           Expanded(
-            child: StatsCard(
+            child: Obx(() => StatsCard(
               title: 'Mês',
-              value: '${controller.monthlyCount}',
+              value: '${controller.stats.value?.monthlyAppointments ?? 0}',
               subtitle: 'consultas',
               icon: Icons.calendar_month,
               color: AppTheme.successColor,
-            ).animate().fadeIn(
+            )).animate().fadeIn(
               delay: const Duration(milliseconds: 700),
               duration: const Duration(milliseconds: 500),
             ).slideY(
@@ -260,13 +562,13 @@ class DashboardScreen extends StatelessWidget {
           ),
           SizedBox(width: spacing),
           Expanded(
-            child: StatsCard(
+            child: Obx(() => StatsCard(
               title: 'Rating',
-              value: '${controller.averageRating.toStringAsFixed(1)}',
+              value: '${controller.averageRating.value.toStringAsFixed(1)}',
               subtitle: 'estrelas',
               icon: Icons.star,
               color: AppTheme.accentColor,
-            ).animate().fadeIn(
+            )).animate().fadeIn(
               delay: const Duration(milliseconds: 800),
               duration: const Duration(milliseconds: 500),
             ).slideY(
@@ -284,13 +586,13 @@ class DashboardScreen extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: StatsCard(
+              child: Obx(() => StatsCard(
                 title: 'Hoje',
-                value: '${controller.todayCount}',
+                value: '${controller.todayAppointments.length}',
                 subtitle: 'consultas',
                 icon: Icons.today,
                 color: AppTheme.primaryColor,
-              ).animate().fadeIn(
+              )).animate().fadeIn(
                 delay: const Duration(milliseconds: 500),
                 duration: const Duration(milliseconds: 500),
               ).slideY(
@@ -301,13 +603,13 @@ class DashboardScreen extends StatelessWidget {
             ),
             SizedBox(width: spacing),
             Expanded(
-              child: StatsCard(
+              child: Obx(() => StatsCard(
                 title: 'Pendentes',
-                value: '${controller.pendingCount}',
+                value: '${controller.pendingAppointments.length}',
                 subtitle: 'aguardando',
                 icon: Icons.pending_actions,
                 color: AppTheme.warningColor,
-              ).animate().fadeIn(
+              )).animate().fadeIn(
                 delay: const Duration(milliseconds: 600),
                 duration: const Duration(milliseconds: 500),
               ).slideY(
@@ -322,13 +624,13 @@ class DashboardScreen extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: StatsCard(
+              child: Obx(() => StatsCard(
                 title: 'Mês',
-                value: '${controller.monthlyCount}',
+                value: '${controller.stats.value?.monthlyAppointments ?? 0}',
                 subtitle: 'consultas',
                 icon: Icons.calendar_month,
                 color: AppTheme.successColor,
-              ).animate().fadeIn(
+              )).animate().fadeIn(
                 delay: const Duration(milliseconds: 700),
                 duration: const Duration(milliseconds: 500),
               ).slideY(
@@ -339,13 +641,13 @@ class DashboardScreen extends StatelessWidget {
             ),
             SizedBox(width: spacing),
             Expanded(
-              child: StatsCard(
+              child: Obx(() => StatsCard(
                 title: 'Rating',
-                value: '${controller.averageRating.toStringAsFixed(1)}',
+                value: '${controller.averageRating.value.toStringAsFixed(1)}',
                 subtitle: 'estrelas',
                 icon: Icons.star,
                 color: AppTheme.accentColor,
-              ).animate().fadeIn(
+              )).animate().fadeIn(
                 delay: const Duration(milliseconds: 800),
                 duration: const Duration(milliseconds: 500),
               ).slideY(
@@ -444,10 +746,11 @@ class DashboardScreen extends StatelessWidget {
                 child: AppointmentCard(
                   appointment: appointment,
                   isMediumView: true,
-                  onConfirm: () => controller.confirmAppointment(appointment.id),
+                  onConfirm: appointment.status == 'pending' ? () => controller.acceptAppointment(appointment.id) : null,
+                  onComplete: appointment.status == 'confirmed' ? () => controller.completeAppointment(appointment.id) : null,
                   onCancel: () => _showCancelDialog(controller, appointment.id),
                   showActions: true,
-                  isPending: true,
+                  isPending: appointment.status == 'pending',
                 ).animate().fadeIn(
                   delay: Duration(milliseconds: 1100 + (index * 100)),
                   duration: const Duration(milliseconds: 500),
@@ -502,7 +805,7 @@ class DashboardScreen extends StatelessWidget {
               child: AppointmentCard(
                 appointment: appointment,
                 isMediumView: true,
-                onConfirm: () => controller.confirmAppointment(appointment.id),
+                onConfirm: () => controller.acceptAppointment(appointment.id),
                 onCancel: () => _showCancelDialog(controller, appointment.id),
                 showActions: true,
                 isPending: true,
@@ -639,6 +942,86 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
+  void _showWalletInfo() {
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.successColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet,
+                  color: AppTheme.successColor,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Como Funciona a Carteira',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '• A cada consulta finalizada, você recebe 80% do valor\n'
+                    '• 20% fica como comissão para o Oraculum\n'
+                    '• O valor é creditado automaticamente na sua carteira\n'
+                    '• Você pode acompanhar todo o histórico de ganhos\n'
+                    '• Saques disponíveis conforme política da plataforma',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Get.back(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Entendi',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showCancelDialog(DashboardController controller, String appointmentId) {
     Get.dialog(
       Dialog(
@@ -721,7 +1104,7 @@ class DashboardScreen extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: () {
                         Get.back();
-                        controller.cancelAppointment(appointmentId, 'Cancelado pelo médium');
+                        controller.cancelAppointment(appointmentId);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.orange,

@@ -16,6 +16,8 @@ class MediumService extends GetxService {
   static const String mediumEarningsCollection = 'medium_earnings';
   static const String mediumReviewsCollection = 'medium_reviews';
   static const String mediumSettingsCollection = 'medium_settings';
+  static const String mediumWalletCollection = 'medium_wallet';
+  static const String oraculumEarningsCollection = 'oraculum_earnings';
 
   Future<MediumModel?> getMediumProfile(String mediumId) async {
     try {
@@ -64,7 +66,6 @@ class MediumService extends GetxService {
     try {
       debugPrint('=== getMediumAppointments() ===');
       debugPrint('Medium ID: $mediumId');
-      debugPrint('Status: $status');
 
       Query query = _firestore
           .collection(appointmentsCollection)
@@ -82,37 +83,57 @@ class MediumService extends GetxService {
         query = query.where('dateTime', isLessThanOrEqualTo: endDate);
       }
 
-      query = query.orderBy('dateTime', descending: false);
+      query = query.orderBy('dateTime', descending: true);
 
       final snapshot = await query.get();
-
       final appointments = snapshot.docs
           .map((doc) => AppointmentModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
 
-      debugPrint('✅ ${appointments.length} agendamentos carregados');
+      debugPrint('✅ ${appointments.length} consultas carregadas');
       return appointments;
     } catch (e) {
-      debugPrint('❌ Erro ao carregar agendamentos: $e');
+      debugPrint('❌ Erro ao carregar consultas: $e');
       return [];
     }
   }
 
-  Future<bool> updateAppointmentStatus(String appointmentId, String status) async {
+  Future<bool> updateAppointmentStatus(String appointmentId, String newStatus) async {
     try {
       debugPrint('=== updateAppointmentStatus() ===');
       debugPrint('Appointment ID: $appointmentId');
-      debugPrint('New Status: $status');
+      debugPrint('New Status: $newStatus');
 
       await _firestore.collection(appointmentsCollection).doc(appointmentId).update({
-        'status': status,
+        'status': newStatus,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      debugPrint('✅ Status do agendamento atualizado');
+      debugPrint('✅ Status da consulta atualizado');
       return true;
     } catch (e) {
-      debugPrint('❌ Erro ao atualizar status do agendamento: $e');
+      debugPrint('❌ Erro ao atualizar status da consulta: $e');
+      return false;
+    }
+  }
+
+  Future<bool> updateMediumStatus(String mediumId, bool isOnline) async {
+    try {
+      debugPrint('=== updateMediumStatus() ===');
+      debugPrint('Medium ID: $mediumId');
+      debugPrint('Is Online: $isOnline');
+
+      await _firestore.collection(mediumsCollection).doc(mediumId).update({
+        'status': isOnline ? 'online' : 'offline',
+        'isAvailable': isOnline,
+        'lastSeen': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      debugPrint('✅ Status do médium atualizado');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Erro ao atualizar status do médium: $e');
       return false;
     }
   }
@@ -166,20 +187,20 @@ class MediumService extends GetxService {
         responseTime: 5.0,
       );
 
-      debugPrint('✅ Estatísticas carregadas: ${stats.toMap()}');
+      debugPrint('✅ Estatísticas carregadas');
       return stats;
     } catch (e) {
       debugPrint('❌ Erro ao carregar estatísticas: $e');
       return MediumStatsModel(
+        totalEarnings: 0.0,
+        monthlyEarnings: 0.0,
+        weeklyEarnings: 0.0,
         totalAppointments: 0,
         completedAppointments: 0,
-        monthlyAppointments: 0,
+        averageRating: 0.0,
         weeklyAppointments: 0,
-        totalEarnings: 0,
-        monthlyEarnings: 0,
-        weeklyEarnings: 0,
-        averageRating: 0,
-        responseTime: 0,
+        monthlyAppointments: 0,
+        responseTime: 0.0,
       );
     }
   }
@@ -251,89 +272,6 @@ class MediumService extends GetxService {
       return true;
     } catch (e) {
       debugPrint('❌ Erro ao atualizar disponibilidade: $e');
-      return false;
-    }
-  }
-
-  Future<bool> updateMediumStatus(String mediumId, bool isOnline) async {
-    try {
-      debugPrint('=== updateMediumStatus() ===');
-      debugPrint('Medium ID: $mediumId');
-      debugPrint('Is Online: $isOnline');
-
-      await _firestore.collection(mediumsCollection).doc(mediumId).update({
-        'isOnline': isOnline,
-        'lastSeen': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      debugPrint('✅ Status do médium atualizado');
-      return true;
-    } catch (e) {
-      debugPrint('❌ Erro ao atualizar status: $e');
-      return false;
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> getEarningsHistory(
-      String mediumId, {
-        DateTime? startDate,
-        DateTime? endDate,
-      }) async {
-    try {
-      debugPrint('=== getEarningsHistory() ===');
-      debugPrint('Medium ID: $mediumId');
-
-      Query query = _firestore
-          .collection(mediumEarningsCollection)
-          .where('mediumId', isEqualTo: mediumId);
-
-      if (startDate != null) {
-        query = query.where('date', isGreaterThanOrEqualTo: startDate);
-      }
-
-      if (endDate != null) {
-        query = query.where('date', isLessThanOrEqualTo: endDate);
-      }
-
-      query = query.orderBy('date', descending: true);
-
-      final snapshot = await query.get();
-      final earnings = snapshot.docs
-          .map((doc) => {
-        'id': doc.id,
-        ...doc.data() as Map<String, dynamic>,
-      })
-          .toList();
-
-      debugPrint('✅ ${earnings.length} registros de ganhos carregados');
-      return earnings;
-    } catch (e) {
-      debugPrint('❌ Erro ao carregar histórico de ganhos: $e');
-      return [];
-    }
-  }
-
-  Future<bool> recordEarning(String mediumId, double amount, String appointmentId) async {
-    try {
-      debugPrint('=== recordEarning() ===');
-      debugPrint('Medium ID: $mediumId');
-      debugPrint('Amount: $amount');
-
-      final earningData = {
-        'mediumId': mediumId,
-        'amount': amount,
-        'appointmentId': appointmentId,
-        'date': DateTime.now(),
-        'createdAt': FieldValue.serverTimestamp(),
-      };
-
-      await _firestore.collection(mediumEarningsCollection).add(earningData);
-
-      debugPrint('✅ Ganho registrado');
-      return true;
-    } catch (e) {
-      debugPrint('❌ Erro ao registrar ganho: $e');
       return false;
     }
   }
@@ -422,38 +360,251 @@ class MediumService extends GetxService {
       'saturday': {
         'isAvailable': false,
         'startTime': '09:00',
-        'endTime': '18:00',
+        'endTime': '17:00',
         'breaks': [],
       },
       'sunday': {
         'isAvailable': false,
-        'startTime': '09:00',
-        'endTime': '18:00',
+        'startTime': '10:00',
+        'endTime': '16:00',
         'breaks': [],
       },
       'blockedDates': [],
-      'consultationDurations': [15, 30, 45, 60],
-      'defaultDuration': 30,
       'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
     };
   }
 
   Map<String, dynamic> _getDefaultSettings() {
     return {
-      'notifications': {
+      'autoAcceptAppointments': false,
+      'bufferTime': 15,
+      'maxDailyAppointments': 10,
+      'minAdvanceBooking': 2,
+      'maxAdvanceBooking': 30,
+      'allowSameDayBooking': true,
+      'notificationSettings': {
         'newAppointments': true,
         'appointmentReminders': true,
         'paymentNotifications': true,
         'reviewNotifications': true,
+        'promotionalEmails': false,
+        'systemUpdates': true,
+        'maintenanceAlerts': true,
       },
-      'autoAcceptAppointments': false,
-      'bufferTimeBetweenAppointments': 15,
-      'maxDailyAppointments': 10,
-      'allowCancellations': true,
-      'cancellationDeadlineHours': 24,
-      'language': 'pt',
-      'timezone': 'America/Sao_Paulo',
+      'consultationDurations': [15, 30, 45, 60],
+      'minimumSessionPrice': 10.0,
+      'acceptsCredits': true,
+      'acceptsCards': true,
+      'acceptsPix': true,
       'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
     };
+  }
+
+  Future<List<Map<String, dynamic>>> getEarningsHistory(
+      String mediumId, {
+        DateTime? startDate,
+        DateTime? endDate,
+      }) async {
+    try {
+      debugPrint('=== getEarningsHistory() ===');
+      debugPrint('Medium ID: $mediumId');
+
+      Query query = _firestore
+          .collection(mediumEarningsCollection)
+          .where('mediumId', isEqualTo: mediumId);
+
+      if (startDate != null) {
+        query = query.where('date', isGreaterThanOrEqualTo: startDate);
+      }
+
+      if (endDate != null) {
+        query = query.where('date', isLessThanOrEqualTo: endDate);
+      }
+
+      query = query.orderBy('date', descending: true);
+
+      final snapshot = await query.get();
+      final earnings = snapshot.docs
+          .map((doc) => {
+        'id': doc.id,
+        ...doc.data() as Map<String, dynamic>,
+      })
+          .toList();
+
+      debugPrint('✅ ${earnings.length} registros de ganhos carregados');
+      return earnings;
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar histórico de ganhos: $e');
+      return [];
+    }
+  }
+
+  Future<double> getMediumWalletBalance(String mediumId) async {
+    try {
+      debugPrint('=== getMediumWalletBalance() ===');
+      debugPrint('Medium ID: $mediumId');
+
+      final doc = await _firestore.collection(mediumWalletCollection).doc(mediumId).get();
+
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        final balance = (data['balance'] ?? 0.0).toDouble();
+        debugPrint('✅ Saldo da carteira: R\$ ${balance.toStringAsFixed(2)}');
+        return balance;
+      } else {
+        await _createMediumWallet(mediumId);
+        return 0.0;
+      }
+    } catch (e) {
+      debugPrint('❌ Erro ao obter saldo da carteira: $e');
+      return 0.0;
+    }
+  }
+
+  Future<bool> _createMediumWallet(String mediumId) async {
+    try {
+      debugPrint('=== _createMediumWallet() ===');
+
+      await _firestore.collection(mediumWalletCollection).doc(mediumId).set({
+        'mediumId': mediumId,
+        'balance': 0.0,
+        'totalEarnings': 0.0,
+        'totalWithdrawals': 0.0,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      debugPrint('✅ Carteira do médium criada');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Erro ao criar carteira: $e');
+      return false;
+    }
+  }
+
+  Future<bool> updateMediumWallet(String mediumId, double amount, String type, {String? description}) async {
+    try {
+      debugPrint('=== updateMediumWallet() ===');
+      debugPrint('Medium ID: $mediumId');
+      debugPrint('Amount: R\$ ${amount.toStringAsFixed(2)}');
+      debugPrint('Type: $type');
+
+      final walletRef = _firestore.collection(mediumWalletCollection).doc(mediumId);
+
+      await _firestore.runTransaction((transaction) async {
+        final walletDoc = await transaction.get(walletRef);
+
+        if (!walletDoc.exists) {
+          transaction.set(walletRef, {
+            'mediumId': mediumId,
+            'balance': 0.0,
+            'totalEarnings': 0.0,
+            'totalWithdrawals': 0.0,
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+
+        final currentData = walletDoc.data() as Map<String, dynamic>? ?? {};
+        final currentBalance = (currentData['balance'] ?? 0.0).toDouble();
+        final totalEarnings = (currentData['totalEarnings'] ?? 0.0).toDouble();
+        final totalWithdrawals = (currentData['totalWithdrawals'] ?? 0.0).toDouble();
+
+        double newBalance = currentBalance;
+        double newTotalEarnings = totalEarnings;
+        double newTotalWithdrawals = totalWithdrawals;
+
+        if (type == 'add') {
+          newBalance += amount;
+          newTotalEarnings += amount;
+        } else if (type == 'subtract') {
+          newBalance -= amount;
+          newTotalWithdrawals += amount;
+        }
+
+        transaction.update(walletRef, {
+          'balance': newBalance,
+          'totalEarnings': newTotalEarnings,
+          'totalWithdrawals': newTotalWithdrawals,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        await _createWalletTransaction(transaction, mediumId, amount, type, newBalance, description);
+      });
+
+      debugPrint('✅ Carteira atualizada com sucesso');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Erro ao atualizar carteira: $e');
+      return false;
+    }
+  }
+
+  Future<void> _createWalletTransaction(Transaction transaction, String mediumId, double amount, String type, double newBalance, String? description) async {
+    final transactionRef = _firestore.collection('wallet_transactions').doc();
+
+    transaction.set(transactionRef, {
+      'mediumId': mediumId,
+      'amount': amount,
+      'type': type,
+      'balanceAfter': newBalance,
+      'description': description ?? '',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<bool> recordEarning(String mediumId, double amount, String appointmentId) async {
+    try {
+      debugPrint('=== recordEarning() ===');
+      debugPrint('Medium ID: $mediumId');
+      debugPrint('Amount: R\$ ${amount.toStringAsFixed(2)}');
+
+      const double oraculumCommission = 0.20;
+      final double mediumEarning = amount * (1 - oraculumCommission);
+      final double oraculumEarning = amount * oraculumCommission;
+
+      debugPrint('Comissão Oraculum (20%): R\$ ${oraculumEarning.toStringAsFixed(2)}');
+      debugPrint('Ganho do Médium (80%): R\$ ${mediumEarning.toStringAsFixed(2)}');
+
+      await _firestore.runTransaction((transaction) async {
+        final earningRef = _firestore.collection(mediumEarningsCollection).doc();
+        final oraculumRef = _firestore.collection(oraculumEarningsCollection).doc();
+
+        transaction.set(earningRef, {
+          'mediumId': mediumId,
+          'appointmentId': appointmentId,
+          'totalAmount': amount,
+          'mediumAmount': mediumEarning,
+          'oraculumAmount': oraculumEarning,
+          'commissionRate': oraculumCommission,
+          'date': DateTime.now(),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        transaction.set(oraculumRef, {
+          'mediumId': mediumId,
+          'appointmentId': appointmentId,
+          'amount': oraculumEarning,
+          'commissionRate': oraculumCommission,
+          'date': DateTime.now(),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      });
+
+      await updateMediumWallet(
+          mediumId,
+          mediumEarning,
+          'add',
+          description: 'Consulta finalizada - ID: $appointmentId'
+      );
+
+      debugPrint('✅ Ganho registrado e carteira atualizada');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Erro ao registrar ganho: $e');
+      return false;
+    }
   }
 }

@@ -21,6 +21,7 @@ class DashboardController extends GetxController {
   final RxBool isOnline = false.obs;
   final RxDouble averageRating = 0.0.obs;
   final RxInt monthlyCount = 0.obs;
+  final RxDouble walletBalance = 0.0.obs;
 
   String? get currentMediumId => _authController.currentUser.value?.uid;
 
@@ -43,6 +44,7 @@ class DashboardController extends GetxController {
         loadTodayAppointments(),
         loadUpcomingAppointments(),
         loadPendingAppointments(),
+        loadWalletBalance(),
       ]);
     } catch (e) {
       debugPrint('❌ Erro ao carregar dados do dashboard: $e');
@@ -62,6 +64,7 @@ class DashboardController extends GetxController {
       stats.value = mediumStats;
       averageRating.value = mediumStats.averageRating;
       monthlyCount.value = mediumStats.monthlyAppointments;
+
       debugPrint('✅ Estatísticas carregadas');
     } catch (e) {
       debugPrint('❌ Erro ao carregar estatísticas: $e');
@@ -70,11 +73,26 @@ class DashboardController extends GetxController {
     }
   }
 
-  Future<void> loadTodayAppointments() async {
+  Future<void> loadWalletBalance() async {
     if (currentMediumId == null) return;
 
     try {
+      debugPrint('=== loadWalletBalance() ===');
+      final balance = await _mediumService.getMediumWalletBalance(currentMediumId!);
+      walletBalance.value = balance;
+      debugPrint('✅ Saldo da carteira carregado: R\$ ${balance.toStringAsFixed(2)}');
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar saldo da carteira: $e');
+    }
+  }
+
+  Future<void> loadTodayAppointments() async {
+    if (currentMediumId == null) return;
+
+    isLoadingAppointments.value = true;
+    try {
       debugPrint('=== loadTodayAppointments() ===');
+
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
       final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
@@ -92,6 +110,8 @@ class DashboardController extends GetxController {
       debugPrint('✅ ${todayAppointments.length} consultas de hoje carregadas');
     } catch (e) {
       debugPrint('❌ Erro ao carregar consultas de hoje: $e');
+    } finally {
+      isLoadingAppointments.value = false;
     }
   }
 
@@ -100,20 +120,17 @@ class DashboardController extends GetxController {
 
     try {
       debugPrint('=== loadUpcomingAppointments() ===');
+
       final now = DateTime.now();
-      final tomorrow = now.add(const Duration(days: 1));
-      final nextWeek = now.add(const Duration(days: 7));
+      final tomorrow = DateTime(now.year, now.month, now.day + 1);
 
       final appointments = await _mediumService.getMediumAppointments(
         currentMediumId!,
+        status: 'confirmed',
         startDate: tomorrow,
-        endDate: nextWeek,
       );
 
-      upcomingAppointments.value = appointments
-          .where((apt) => apt.status != 'canceled')
-          .take(5)
-          .toList();
+      upcomingAppointments.value = appointments.take(5).toList();
 
       debugPrint('✅ ${upcomingAppointments.length} próximas consultas carregadas');
     } catch (e) {
@@ -126,48 +143,49 @@ class DashboardController extends GetxController {
 
     try {
       debugPrint('=== loadPendingAppointments() ===');
+
       final appointments = await _mediumService.getMediumAppointments(
         currentMediumId!,
         status: 'pending',
       );
 
       pendingAppointments.value = appointments;
+
       debugPrint('✅ ${pendingAppointments.length} consultas pendentes carregadas');
     } catch (e) {
       debugPrint('❌ Erro ao carregar consultas pendentes: $e');
     }
   }
 
-  Future<void> confirmAppointment(String appointmentId) async {
+  Future<void> acceptAppointment(String appointmentId) async {
     try {
-      debugPrint('=== confirmAppointment() ===');
+      debugPrint('=== acceptAppointment() ===');
       debugPrint('Appointment ID: $appointmentId');
 
       final success = await _mediumService.updateAppointmentStatus(appointmentId, 'confirmed');
 
       if (success) {
         Get.snackbar(
-          'Sucesso',
-          'Consulta confirmada com sucesso',
+          'Consulta Aceita',
+          'A consulta foi aceita com sucesso',
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
 
         await loadDashboardData();
       } else {
-        Get.snackbar('Erro', 'Não foi possível confirmar a consulta');
+        Get.snackbar('Erro', 'Não foi possível aceitar a consulta');
       }
     } catch (e) {
-      debugPrint('❌ Erro ao confirmar consulta: $e');
-      Get.snackbar('Erro', 'Erro ao confirmar consulta: $e');
+      debugPrint('❌ Erro ao aceitar consulta: $e');
+      Get.snackbar('Erro', 'Erro ao aceitar consulta: $e');
     }
   }
 
-  Future<void> cancelAppointment(String appointmentId, String reason) async {
+  Future<void> cancelAppointment(String appointmentId) async {
     try {
       debugPrint('=== cancelAppointment() ===');
       debugPrint('Appointment ID: $appointmentId');
-      debugPrint('Reason: $reason');
 
       final success = await _mediumService.updateAppointmentStatus(appointmentId, 'canceled');
 
@@ -206,13 +224,16 @@ class DashboardController extends GetxController {
             appointment.amount,
             appointmentId,
           );
+
+          await loadWalletBalance();
         }
 
         Get.snackbar(
           'Consulta Finalizada',
-          'A consulta foi marcada como concluída',
+          'A consulta foi marcada como concluída e o valor foi adicionado à sua carteira (80% - após desconto de 20% para o Oraculum)',
           backgroundColor: Colors.green,
           colorText: Colors.white,
+          duration: Duration(seconds: 4),
         );
 
         await loadDashboardData();
@@ -273,14 +294,4 @@ class DashboardController extends GetxController {
   String getStatusText() {
     return isOnline.value ? 'Online' : 'Offline';
   }
-
-  int get totalTodayEarnings {
-    return todayAppointments
-        .where((apt) => apt.status == 'completed')
-        .fold(0, (sum, apt) => sum + apt.amount.toInt());
-  }
-
-  int get pendingCount => pendingAppointments.length;
-  int get todayCount => todayAppointments.length;
-  int get upcomingCount => upcomingAppointments.length;
 }
