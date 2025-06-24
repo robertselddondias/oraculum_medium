@@ -443,10 +443,11 @@ class DashboardScreen extends StatelessWidget {
                 padding: EdgeInsets.only(bottom: isLargeScreen ? 16 : 12),
                 child: AppointmentCard(
                   appointment: appointment,
+                  isMediumView: true,
                   onConfirm: () => controller.confirmAppointment(appointment.id),
                   onCancel: () => _showCancelDialog(controller, appointment.id),
-                  onComplete: () => controller.completeAppointment(appointment.id),
                   showActions: true,
+                  isPending: true,
                 ).animate().fadeIn(
                   delay: Duration(milliseconds: 1100 + (index * 100)),
                   duration: const Duration(milliseconds: 500),
@@ -500,6 +501,7 @@ class DashboardScreen extends StatelessWidget {
               padding: EdgeInsets.only(bottom: isLargeScreen ? 16 : 12),
               child: AppointmentCard(
                 appointment: appointment,
+                isMediumView: true,
                 onConfirm: () => controller.confirmAppointment(appointment.id),
                 onCancel: () => _showCancelDialog(controller, appointment.id),
                 showActions: true,
@@ -555,6 +557,7 @@ class DashboardScreen extends StatelessWidget {
             return Padding(
               padding: EdgeInsets.only(bottom: isLargeScreen ? 16 : 12),
               child: AppointmentCard(
+                isMediumView: true,
                 appointment: appointment,
                 showActions: false,
                 isUpcoming: true,

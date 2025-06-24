@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:oraculum_medium/config/routes.dart';
-import 'package:oraculum_medium/config/theme.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:oraculum_medium/controllers/appointment_admin_controller.dart';
+import 'package:oraculum_medium/controllers/auth_controller.dart';
+import 'package:oraculum_medium/config/theme.dart';
+import 'package:oraculum_medium/config/routes.dart';
 import 'package:oraculum_medium/widgets/appointment_card.dart';
 
 class AppointmentsListScreen extends StatefulWidget {
@@ -13,22 +15,25 @@ class AppointmentsListScreen extends StatefulWidget {
   State<AppointmentsListScreen> createState() => _AppointmentsListScreenState();
 }
 
-class _AppointmentsListScreenState extends State<AppointmentsListScreen>
-    with SingleTickerProviderStateMixin {
+class _AppointmentsListScreenState extends State<AppointmentsListScreen> {
   final AppointmentAdminController _controller = Get.find<AppointmentAdminController>();
+  final AuthController _authController = Get.find<AuthController>();
   final TextEditingController _searchController = TextEditingController();
-  late TabController _tabController;
+
+  bool get isMedium => _authController.mediumId != null;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    initializeDateFormatting('pt_BR', null);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _controller.loadAppointments();
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -36,179 +41,137 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
+        decoration: AppTheme.backgroundDecoration,
         child: SafeArea(
           child: Column(
             children: [
               _buildHeader(),
-              _buildSearchAndFilters(),
-              _buildTabBar(),
-              Expanded(child: _buildTabBarView()),
+              _buildFilters(),
+              Expanded(child: _buildAppointmentsList()),
             ],
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _controller.refreshAppointments(),
-        backgroundColor: AppTheme.primaryColor,
-        child: const Icon(Icons.refresh, color: Colors.white),
       ),
     );
   }
 
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Get.back(),
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-          ),
-          const Expanded(
-            child: Text(
-              'Minhas Consultas',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          IconButton(
-            onPressed: () => _showDateFilter(),
-            icon: const Icon(Icons.date_range, color: Colors.white),
-          ),
-          IconButton(
-            onPressed: () => _controller.clearFilters(),
-            icon: const Icon(Icons.clear_all, color: Colors.white),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchAndFilters() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withOpacity(0.2)),
-              ),
-              child: TextField(
-                controller: _searchController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'Buscar por cliente...',
-                  hintStyle: TextStyle(color: Colors.white60),
-                  prefixIcon: Icon(Icons.search, color: Colors.white60),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-                onChanged: (value) => _controller.setSearchQuery(value),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Obx(() {
-            final counts = _controller.getAppointmentCounts();
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.5)),
-              ),
-              child: Text(
-                '${counts['all'] ?? 0} total',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabBar() {
     return Container(
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Obx(() {
-        final counts = _controller.getAppointmentCounts();
-        return TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          indicator: BoxDecoration(
-            color: AppTheme.primaryColor,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-          onTap: (index) {
-            final filters = ['all', 'pending', 'confirmed', 'completed', 'canceled'];
-            _controller.setFilter(filters[index]);
-          },
-          tabs: [
-            _buildTab('Todas', counts['all'] ?? 0),
-            _buildTab('Pendentes', counts['pending'] ?? 0),
-            _buildTab('Confirmadas', counts['confirmed'] ?? 0),
-            _buildTab('Concluídas', counts['completed'] ?? 0),
-            _buildTab('Canceladas', counts['canceled'] ?? 0),
-          ],
-        );
-      }),
-    );
-  }
-
-  Widget _buildTab(String label, int count) {
-    return Tab(
+      padding: const EdgeInsets.all(20),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label),
-          if (count > 0) ...[
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                count.toString(),
-                style: const TextStyle(fontSize: 12),
-              ),
+          if (Navigator.canPop(context))
+            IconButton(
+              onPressed: () => Get.back(),
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
             ),
-          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isMedium ? 'Minhas Consultas' : 'Minhas Consultas',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                Obx(() => Text(
+                  '${_controller.filteredAppointments.length} consulta(s) encontrada(s)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.7),
+                  ),
+                )),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => _controller.refreshAppointments(),
+            icon: const Icon(Icons.refresh, color: Colors.white),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTabBarView() {
-    return TabBarView(
-      controller: _tabController,
-      children: [
-        _buildAppointmentsList(),
-        _buildAppointmentsList(),
-        _buildAppointmentsList(),
-        _buildAppointmentsList(),
-        _buildAppointmentsList(),
-      ],
+  Widget _buildFilters() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: [
+          TextField(
+            controller: _searchController,
+            onChanged: _controller.setSearchQuery,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: isMedium ? 'Buscar por cliente...' : 'Buscar por médium...',
+              hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+              prefixIcon: const Icon(Icons.search, color: Colors.white),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppTheme.primaryColor),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: _buildFilterChips()),
+              const SizedBox(width: 16),
+              _buildDateFilterButton(),
+            ],
+          ),
+        ],
+      ),
     );
+  }
+
+  Widget _buildFilterChips() {
+    return Obx(() => SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: _controller.filterOptions.map((filter) {
+          final isSelected = _controller.selectedFilter.value == filter;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: Text(_controller.filterLabels[filter]!),
+              selected: isSelected,
+              onSelected: (selected) => _controller.setFilter(filter),
+              backgroundColor: Colors.white.withOpacity(0.1),
+              selectedColor: AppTheme.primaryColor,
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+              ),
+              side: BorderSide(
+                color: isSelected ? AppTheme.primaryColor : Colors.white.withOpacity(0.3),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    ));
+  }
+
+  Widget _buildDateFilterButton() {
+    return Obx(() => IconButton(
+      onPressed: _showDateFilter,
+      icon: Icon(
+        _controller.selectedDate.value != null ? Icons.date_range : Icons.date_range_outlined,
+        color: _controller.selectedDate.value != null ? AppTheme.primaryColor : Colors.white,
+      ),
+      tooltip: 'Filtrar por data',
+    ));
   }
 
   Widget _buildAppointmentsList() {
@@ -216,38 +179,41 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
       if (_controller.isLoading.value) {
         return const Center(
           child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
           ),
         );
       }
 
-      if (!_controller.hasFilteredAppointments()) {
+      if (_controller.filteredAppointments.isEmpty) {
         return _buildEmptyState();
       }
 
       return RefreshIndicator(
         onRefresh: _controller.refreshAppointments,
+        backgroundColor: Colors.white,
+        color: AppTheme.primaryColor,
         child: ListView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           itemCount: _controller.filteredAppointments.length,
           itemBuilder: (context, index) {
             final appointment = _controller.filteredAppointments[index];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: AppointmentCard(
-                appointment: appointment,
-                onTap: () => _navigateToDetails(appointment.id),
-                onConfirm: appointment.status == 'pending'
-                    ? () => _controller.confirmAppointment(appointment.id)
-                    : null,
-                onCancel: appointment.status == 'pending' || appointment.status == 'confirmed'
-                    ? () => _showCancelDialog(appointment.id)
-                    : null,
-                onComplete: appointment.status == 'confirmed'
-                    ? () => _controller.completeAppointment(appointment.id)
-                    : null,
-                showActions: appointment.status != 'completed' && appointment.status != 'canceled',
+            return AppointmentCard(
+              appointment: appointment,
+              isMediumView: isMedium,
+              onTap: () => Get.toNamed(
+                AppRoutes.appointmentDetails,
+                arguments: appointment.id,
               ),
+              onConfirm: isMedium && appointment.status == 'pending'
+                  ? () => _controller.confirmAppointment(appointment.id)
+                  : null,
+              onCancel: (appointment.status == 'pending' || appointment.status == 'confirmed')
+                  ? () => _showCancelDialog(appointment.id)
+                  : null,
+              onComplete: isMedium && appointment.status == 'confirmed'
+                  ? () => _controller.completeAppointment(appointment.id)
+                  : null,
+              showActions: appointment.status != 'completed' && appointment.status != 'canceled',
             );
           },
         ),
@@ -276,7 +242,9 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Suas consultas aparecerão aqui',
+            isMedium
+                ? 'Suas consultas aparecerão aqui'
+                : 'Suas consultas agendadas aparecerão aqui',
             style: TextStyle(
               fontSize: 14,
               color: Colors.white.withOpacity(0.5),
@@ -323,33 +291,25 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
   }
 
   void _showCancelDialog(String appointmentId) {
+    final TextEditingController reasonController = TextEditingController();
+
     Get.dialog(
       Dialog(
         backgroundColor: Colors.transparent,
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: AppTheme.surfaceColor,
+            color: Colors.black.withOpacity(0.8),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.2),
-              width: 1,
-            ),
+            border: Border.all(color: Colors.white.withOpacity(0.2)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.warning_rounded,
-                  color: Colors.orange,
-                  size: 32,
-                ),
+              const Icon(
+                Icons.cancel_outlined,
+                color: Colors.red,
+                size: 48,
               ),
               const SizedBox(height: 16),
               const Text(
@@ -360,35 +320,59 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               const Text(
                 'Tem certeza que deseja cancelar esta consulta?',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 16,
-                ),
+                style: TextStyle(color: Colors.white70),
                 textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: reasonController,
+                maxLines: 3,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Motivo do cancelamento (opcional)',
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.red),
+                  ),
+                ),
               ),
               const SizedBox(height: 24),
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Get.back(),
-                      child: const Text('Voltar'),
+                  TextButton(
+                    onPressed: () => Get.back(),
+                    child: const Text(
+                      'Voltar',
+                      style: TextStyle(color: Colors.white70),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Get.back();
-                        _controller.cancelAppointment(appointmentId, 'Cancelado pelo médium');
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                      ),
-                      child: const Text('Cancelar'),
+                  ElevatedButton(
+                    onPressed: () {
+                      Get.back();
+                      _controller.cancelAppointment(
+                        appointmentId,
+                        reasonController.text.trim(),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                    child: const Text(
+                      'Cancelar Consulta',
+                      style: TextStyle(color: Colors.white),
                     ),
                   ),
                 ],
@@ -397,13 +381,6 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen>
           ),
         ),
       ),
-    );
-  }
-
-  void _navigateToDetails(String appointmentId) {
-    Get.toNamed(
-      AppRoutes.appointmentDetails,
-      arguments: {'appointmentId': appointmentId},
     );
   }
 }

@@ -3,9 +3,11 @@ import 'package:get/get.dart';
 import 'package:oraculum_medium/controllers/auth_controller.dart';
 import 'package:oraculum_medium/models/appointment_model.dart';
 import 'package:oraculum_medium/services/medium_service.dart';
+import 'package:oraculum_medium/services/firebase_service.dart';
 
 class AppointmentAdminController extends GetxController {
   final MediumService _mediumService = Get.find<MediumService>();
+  final FirebaseService _firebaseService = Get.find<FirebaseService>();
   final AuthController _authController = Get.find<AuthController>();
 
   final RxBool isLoading = false.obs;
@@ -35,6 +37,7 @@ class AppointmentAdminController extends GetxController {
   };
 
   String? get currentMediumId => _authController.mediumId;
+  String? get currentUserId => _authController.currentUser.value?.uid;
 
   @override
   void onInit() {
@@ -50,17 +53,27 @@ class AppointmentAdminController extends GetxController {
     DateTime? startDate,
     DateTime? endDate,
   }) async {
-    if (currentMediumId == null) return;
-
     try {
       debugPrint('=== loadAppointments() ===');
       isLoading.value = true;
 
-      final appointments = await _mediumService.getMediumAppointments(
-        currentMediumId!,
-        startDate: startDate,
-        endDate: endDate,
-      );
+      List<AppointmentModel> appointments = [];
+
+      if (currentMediumId != null) {
+        appointments = await _mediumService.getMediumAppointments(
+          currentMediumId!,
+          startDate: startDate,
+          endDate: endDate,
+        );
+        debugPrint('✅ Carregando consultas para médium: $currentMediumId');
+      } else if (currentUserId != null) {
+        appointments = await _loadUserAppointments(
+          currentUserId!,
+          startDate: startDate,
+          endDate: endDate,
+        );
+        debugPrint('✅ Carregando consultas para usuário: $currentUserId');
+      }
 
       allAppointments.value = appointments;
       _applyFilters();
@@ -72,6 +85,84 @@ class AppointmentAdminController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  Future<List<AppointmentModel>> _loadUserAppointments(
+      String userId, {
+        DateTime? startDate,
+        DateTime? endDate,
+      }) async {
+    try {
+      final querySnapshot = await _firebaseService.firestore
+          .collection('appointments')
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      List<AppointmentModel> appointments = [];
+
+      for (var doc in querySnapshot.docs) {
+        try {
+          final data = doc.data();
+
+          // Enriquecer dados do appointment com informações do usuário e médium
+          await _enrichAppointmentData(data);
+
+          final appointment = AppointmentModel.fromMap(data, doc.id);
+
+          if (startDate != null && appointment.dateTime.isBefore(startDate)) {
+            continue;
+          }
+
+          if (endDate != null && appointment.dateTime.isAfter(endDate)) {
+            continue;
+          }
+
+          appointments.add(appointment);
+        } catch (e) {
+          debugPrint('❌ Erro ao processar consulta ${doc.id}: $e');
+        }
+      }
+
+      appointments.sort((a, b) => b.dateTime.compareTo(a.dateTime));
+      return appointments;
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar consultas do usuário: $e');
+      return [];
+    }
+  }
+
+  Future<void> _enrichAppointmentData(Map<String, dynamic> appointmentData) async {
+    try {
+      final userId = appointmentData['userId'];
+      final mediumId = appointmentData['mediumId'];
+
+      // Buscar dados do usuário se não existirem
+      if (userId != null && (appointmentData['userName'] == null || appointmentData['userName'].isEmpty)) {
+        final userDoc = await _firebaseService.firestore.collection('users').doc(userId).get();
+        if (userDoc.exists) {
+          final userData = userDoc.data()!;
+          appointmentData['userName'] = userData['name'] ?? userData['displayName'] ?? 'Cliente';
+          appointmentData['userEmail'] = userData['email'];
+          appointmentData['userPhone'] = userData['phone'];
+        }
+      }
+
+      // Buscar dados do médium se não existirem
+      if (mediumId != null && (appointmentData['mediumName'] == null || appointmentData['mediumName'].isEmpty)) {
+        final mediumDoc = await _firebaseService.firestore.collection('mediums').doc(mediumId).get();
+        if (mediumDoc.exists) {
+          final mediumData = mediumDoc.data()!;
+          appointmentData['mediumName'] = mediumData['name'] ?? 'Médium';
+          appointmentData['mediumSpecialty'] = mediumData['specialty'] ?? mediumData['specialties']?.first ?? 'Consulta espiritual';
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Erro ao enriquecer dados do appointment: $e');
+    }
+  }
+
+  Future<void> refreshAppointments() async {
+    await loadAppointments();
   }
 
   Future<void> loadAppointmentDetails(String appointmentId) async {
@@ -196,33 +287,33 @@ class AppointmentAdminController extends GetxController {
       debugPrint('Appointment ID: $appointmentId');
       debugPrint('New DateTime: $newDateTime');
 
-      final success = await _mediumService.updateMediumProfile(currentMediumId!, {
+      final success = await _firebaseService.firestore
+          .collection('appointments')
+          .doc(appointmentId)
+          .update({
         'dateTime': newDateTime,
         'status': 'confirmed',
+        'updatedAt': DateTime.now(),
       });
 
-      if (success) {
-        final appointmentIndex = allAppointments.indexWhere((apt) => apt.id == appointmentId);
-        if (appointmentIndex != -1) {
-          final updatedAppointment = allAppointments[appointmentIndex].copyWith(
-            dateTime: newDateTime,
-            status: 'confirmed',
-          );
-          allAppointments[appointmentIndex] = updatedAppointment;
-          _applyFilters();
-        }
-
-        Get.snackbar(
-          'Consulta Reagendada',
-          'A consulta foi reagendada com sucesso',
-          backgroundColor: Colors.blue,
-          colorText: Colors.white,
+      final appointmentIndex = allAppointments.indexWhere((apt) => apt.id == appointmentId);
+      if (appointmentIndex != -1) {
+        final updatedAppointment = allAppointments[appointmentIndex].copyWith(
+          dateTime: newDateTime,
+          status: 'confirmed',
         );
-      } else {
-        Get.snackbar('Erro', 'Não foi possível reagendar a consulta');
+        allAppointments[appointmentIndex] = updatedAppointment;
+        _applyFilters();
       }
 
-      return success;
+      Get.snackbar(
+        'Consulta Reagendada',
+        'A consulta foi reagendada com sucesso',
+        backgroundColor: Colors.blue,
+        colorText: Colors.white,
+      );
+
+      return true;
     } catch (e) {
       debugPrint('❌ Erro ao reagendar consulta: $e');
       Get.snackbar('Erro', 'Erro ao reagendar consulta: $e');
@@ -255,6 +346,7 @@ class AppointmentAdminController extends GetxController {
       final query = searchQuery.value.toLowerCase();
       filtered = filtered.where((apt) {
         return (apt.userName?.toLowerCase().contains(query) ?? false) ||
+            (apt.mediumName?.toLowerCase().contains(query) ?? false) ||
             (apt.mediumSpecialty?.toLowerCase().contains(query) ?? false);
       }).toList();
     }
@@ -285,86 +377,13 @@ class AppointmentAdminController extends GetxController {
     selectedDate.value = date;
   }
 
+  void clearDateFilter() {
+    selectedDate.value = null;
+  }
+
   void clearFilters() {
     selectedFilter.value = 'all';
     searchQuery.value = '';
     selectedDate.value = null;
   }
-
-  Future<void> refreshAppointments() async {
-    await loadAppointments();
-  }
-
-  List<AppointmentModel> getAppointmentsByStatus(String status) {
-    return allAppointments.where((apt) => apt.status == status).toList();
-  }
-
-  List<AppointmentModel> getTodayAppointments() {
-    final today = DateTime.now();
-    return allAppointments.where((apt) {
-      final aptDate = apt.dateTime;
-      return aptDate.year == today.year &&
-          aptDate.month == today.month &&
-          aptDate.day == today.day;
-    }).toList();
-  }
-
-  List<AppointmentModel> getUpcomingAppointments({int days = 7}) {
-    final now = DateTime.now();
-    final futureDate = now.add(Duration(days: days));
-
-    return allAppointments.where((apt) {
-      return apt.dateTime.isAfter(now) &&
-          apt.dateTime.isBefore(futureDate) &&
-          apt.status != 'canceled';
-    }).toList();
-  }
-
-  Map<String, int> getAppointmentCounts() {
-    final counts = <String, int>{};
-
-    for (final option in filterOptions) {
-      if (option == 'all') {
-        counts[option] = allAppointments.length;
-      } else {
-        counts[option] = allAppointments.where((apt) => apt.status == option).length;
-      }
-    }
-
-    return counts;
-  }
-
-  double getTotalEarnings() {
-    return allAppointments
-        .where((apt) => apt.status == 'completed')
-        .fold(0.0, (sum, apt) => sum + apt.amount);
-  }
-
-  double getMonthlyEarnings() {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-
-    return allAppointments
-        .where((apt) => apt.status == 'completed' && apt.dateTime.isAfter(startOfMonth))
-        .fold(0.0, (sum, apt) => sum + apt.amount);
-  }
-
-  double getWeeklyEarnings() {
-    final now = DateTime.now();
-    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-
-    return allAppointments
-        .where((apt) => apt.status == 'completed' && apt.dateTime.isAfter(startOfWeek))
-        .fold(0.0, (sum, apt) => sum + apt.amount);
-  }
-
-  int getPendingCount() => getAppointmentsByStatus('pending').length;
-  int getConfirmedCount() => getAppointmentsByStatus('confirmed').length;
-  int getCompletedCount() => getAppointmentsByStatus('completed').length;
-  int getCanceledCount() => getAppointmentsByStatus('canceled').length;
-
-  String getFilterLabel(String filter) => filterLabels[filter] ?? filter;
-
-  bool hasAppointments() => allAppointments.isNotEmpty;
-  bool hasFilteredAppointments() => filteredAppointments.isNotEmpty;
 }

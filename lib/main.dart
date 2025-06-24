@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:oraculum_medium/config/routes.dart';
 import 'package:oraculum_medium/config/theme.dart';
 import 'package:oraculum_medium/controllers/auth_controller.dart';
@@ -20,6 +21,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  await initializeDateFormatting('pt_BR', null);
 
   Get.put(FirebaseService(), permanent: true);
   Get.put(MediumService(), permanent: true);
