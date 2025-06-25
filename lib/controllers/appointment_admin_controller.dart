@@ -95,7 +95,7 @@ class AppointmentAdminController extends GetxController {
     try {
       final querySnapshot = await _firebaseService.firestore
           .collection('appointments')
-          .where('userId', isEqualTo: userId)
+          .where('clientId', isEqualTo: userId)
           .get();
 
       List<AppointmentModel> appointments = [];
@@ -103,17 +103,15 @@ class AppointmentAdminController extends GetxController {
       for (var doc in querySnapshot.docs) {
         try {
           final data = doc.data();
-
-          // Enriquecer dados do appointment com informações do usuário e médium
           await _enrichAppointmentData(data);
 
           final appointment = AppointmentModel.fromMap(data, doc.id);
 
-          if (startDate != null && appointment.dateTime.isBefore(startDate)) {
+          if (startDate != null && appointment.scheduledDate.isBefore(startDate)) {
             continue;
           }
 
-          if (endDate != null && appointment.dateTime.isAfter(endDate)) {
+          if (endDate != null && appointment.scheduledDate.isAfter(endDate)) {
             continue;
           }
 
@@ -123,7 +121,7 @@ class AppointmentAdminController extends GetxController {
         }
       }
 
-      appointments.sort((a, b) => b.dateTime.compareTo(a.dateTime));
+      appointments.sort((a, b) => b.scheduledDate.compareTo(a.scheduledDate));
       return appointments;
     } catch (e) {
       debugPrint('❌ Erro ao carregar consultas do usuário: $e');
@@ -133,27 +131,23 @@ class AppointmentAdminController extends GetxController {
 
   Future<void> _enrichAppointmentData(Map<String, dynamic> appointmentData) async {
     try {
-      final userId = appointmentData['userId'];
+      final clientId = appointmentData['clientId'];
       final mediumId = appointmentData['mediumId'];
 
-      // Buscar dados do usuário se não existirem
-      if (userId != null && (appointmentData['userName'] == null || appointmentData['userName'].isEmpty)) {
-        final userDoc = await _firebaseService.firestore.collection('users').doc(userId).get();
+      if (clientId != null && (appointmentData['clientName'] == null || appointmentData['clientName'].isEmpty)) {
+        final userDoc = await _firebaseService.firestore.collection('users').doc(clientId).get();
         if (userDoc.exists) {
           final userData = userDoc.data()!;
-          appointmentData['userName'] = userData['name'] ?? userData['displayName'] ?? 'Cliente';
-          appointmentData['userEmail'] = userData['email'];
-          appointmentData['userPhone'] = userData['phone'];
+          appointmentData['clientName'] = userData['name'] ?? userData['displayName'] ?? 'Cliente';
         }
       }
 
-      // Buscar dados do médium se não existirem
       if (mediumId != null && (appointmentData['mediumName'] == null || appointmentData['mediumName'].isEmpty)) {
         final mediumDoc = await _firebaseService.firestore.collection('mediums').doc(mediumId).get();
         if (mediumDoc.exists) {
           final mediumData = mediumDoc.data()!;
           appointmentData['mediumName'] = mediumData['name'] ?? 'Médium';
-          appointmentData['mediumSpecialty'] = mediumData['specialty'] ?? mediumData['specialties']?.first ?? 'Consulta espiritual';
+          appointmentData['mediumImageUrl'] = mediumData['imageUrl'];
         }
       }
     } catch (e) {
@@ -162,30 +156,35 @@ class AppointmentAdminController extends GetxController {
   }
 
   Future<void> refreshAppointments() async {
-    await loadAppointments();
+    try {
+      await loadAppointments();
+    } catch (e) {
+      debugPrint('❌ Erro ao atualizar consultas: $e');
+    }
   }
 
   Future<void> loadAppointmentDetails(String appointmentId) async {
     try {
-      debugPrint('=== loadAppointmentDetails() ===');
-      debugPrint('Appointment ID: $appointmentId');
-
       isLoadingDetails.value = true;
 
-      final appointment = allAppointments.firstWhereOrNull(
-            (apt) => apt.id == appointmentId,
-      );
+      final appointment = allAppointments.firstWhereOrNull((apt) => apt.id == appointmentId);
 
       if (appointment != null) {
         selectedAppointment.value = appointment;
-        debugPrint('✅ Detalhes da consulta carregados');
       } else {
-        debugPrint('❌ Consulta não encontrada');
-        Get.snackbar('Erro', 'Consulta não encontrada');
+        final doc = await _firebaseService.firestore
+            .collection('appointments')
+            .doc(appointmentId)
+            .get();
+
+        if (doc.exists) {
+          final data = doc.data()!;
+          await _enrichAppointmentData(data);
+          selectedAppointment.value = AppointmentModel.fromMap(data, doc.id);
+        }
       }
     } catch (e) {
-      debugPrint('❌ Erro ao carregar detalhes: $e');
-      Get.snackbar('Erro', 'Erro ao carregar detalhes da consulta');
+      debugPrint('❌ Erro ao carregar detalhes da consulta: $e');
     } finally {
       isLoadingDetails.value = false;
     }
@@ -193,140 +192,86 @@ class AppointmentAdminController extends GetxController {
 
   Future<bool> confirmAppointment(String appointmentId) async {
     try {
-      debugPrint('=== confirmAppointment() ===');
-      debugPrint('Appointment ID: $appointmentId');
-
-      final success = await _mediumService.updateAppointmentStatus(appointmentId, 'confirmed');
-
-      if (success) {
-        _updateAppointmentInList(appointmentId, 'confirmed');
-        Get.snackbar(
-          'Consulta Confirmada',
-          'A consulta foi confirmada com sucesso',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
-      } else {
-        Get.snackbar('Erro', 'Não foi possível confirmar a consulta');
-      }
-
-      return success;
-    } catch (e) {
-      debugPrint('❌ Erro ao confirmar consulta: $e');
-      Get.snackbar('Erro', 'Erro ao confirmar consulta: $e');
-      return false;
-    }
-  }
-
-  Future<bool> cancelAppointment(String appointmentId, String reason) async {
-    try {
-      debugPrint('=== cancelAppointment() ===');
-      debugPrint('Appointment ID: $appointmentId');
-      debugPrint('Reason: $reason');
-
-      final success = await _mediumService.updateAppointmentStatus(appointmentId, 'canceled');
-
-      if (success) {
-        _updateAppointmentInList(appointmentId, 'canceled');
-        Get.snackbar(
-          'Consulta Cancelada',
-          'A consulta foi cancelada',
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
-        );
-      } else {
-        Get.snackbar('Erro', 'Não foi possível cancelar a consulta');
-      }
-
-      return success;
-    } catch (e) {
-      debugPrint('❌ Erro ao cancelar consulta: $e');
-      return false;
-    }
-  }
-
-  Future<bool> rescheduleAppointment(String appointmentId, DateTime newDateTime) async {
-    try {
-      debugPrint('=== rescheduleAppointment() ===');
-      debugPrint('Appointment ID: $appointmentId');
-      debugPrint('New DateTime: $newDateTime');
-
-      final success = await _firebaseService.firestore
+      await _firebaseService.firestore
           .collection('appointments')
           .doc(appointmentId)
           .update({
-        'dateTime': newDateTime,
         'status': 'confirmed',
         'updatedAt': DateTime.now(),
       });
 
-      final appointmentIndex = allAppointments.indexWhere((apt) => apt.id == appointmentId);
-      if (appointmentIndex != -1) {
-        final updatedAppointment = allAppointments[appointmentIndex].copyWith(
-          dateTime: newDateTime,
-          status: 'confirmed',
-        );
-        allAppointments[appointmentIndex] = updatedAppointment;
-        _applyFilters();
-      }
+      await refreshAppointments();
 
       Get.snackbar(
-        'Consulta Reagendada',
-        'A consulta foi reagendada com sucesso',
-        backgroundColor: Colors.blue,
+        'Sucesso',
+        'Consulta confirmada com sucesso!',
+        backgroundColor: Colors.green,
         colorText: Colors.white,
       );
 
       return true;
     } catch (e) {
-      debugPrint('❌ Erro ao reagendar consulta: $e');
-      Get.snackbar('Erro', 'Erro ao reagendar consulta: $e');
+      debugPrint('❌ Erro ao confirmar consulta: $e');
+      Get.snackbar('Erro', 'Não foi possível confirmar a consulta');
       return false;
     }
   }
 
-  void _updateAppointmentInList(String appointmentId, String newStatus) {
-    final appointmentIndex = allAppointments.indexWhere((apt) => apt.id == appointmentId);
-    if (appointmentIndex != -1) {
-      final updatedAppointment = allAppointments[appointmentIndex].copyWith(status: newStatus);
-      allAppointments[appointmentIndex] = updatedAppointment;
+  Future<bool> cancelAppointment(String appointmentId, {String? reason}) async {
+    try {
+      await _firebaseService.firestore
+          .collection('appointments')
+          .doc(appointmentId)
+          .update({
+        'status': 'cancelled',
+        'cancelReason': reason ?? 'Cancelado pelo médium',
+        'canceledAt': DateTime.now(),
+        'updatedAt': DateTime.now(),
+      });
 
-      if (selectedAppointment.value?.id == appointmentId) {
-        selectedAppointment.value = updatedAppointment;
-      }
+      await refreshAppointments();
 
-      _applyFilters();
+      Get.snackbar(
+        'Consulta Cancelada',
+        'A consulta foi cancelada com sucesso.',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+
+      return true;
+    } catch (e) {
+      debugPrint('❌ Erro ao cancelar consulta: $e');
+      Get.snackbar('Erro', 'Não foi possível cancelar a consulta');
+      return false;
     }
   }
 
-  void _applyFilters() {
-    var filtered = List<AppointmentModel>.from(allAppointments);
+  Future<bool> completeAppointment(String appointmentId) async {
+    try {
+      await _firebaseService.firestore
+          .collection('appointments')
+          .doc(appointmentId)
+          .update({
+        'status': 'completed',
+        'completedAt': DateTime.now(),
+        'updatedAt': DateTime.now(),
+      });
 
-    if (selectedFilter.value != 'all') {
-      filtered = filtered.where((apt) => apt.status == selectedFilter.value).toList();
+      await refreshAppointments();
+
+      Get.snackbar(
+        'Consulta Concluída',
+        'A consulta foi marcada como concluída.',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+
+      return true;
+    } catch (e) {
+      debugPrint('❌ Erro ao concluir consulta: $e');
+      Get.snackbar('Erro', 'Não foi possível concluir a consulta');
+      return false;
     }
-
-    if (searchQuery.value.isNotEmpty) {
-      final query = searchQuery.value.toLowerCase();
-      filtered = filtered.where((apt) {
-        return (apt.userName?.toLowerCase().contains(query) ?? false) ||
-            (apt.mediumName?.toLowerCase().contains(query) ?? false) ||
-            (apt.mediumSpecialty?.toLowerCase().contains(query) ?? false);
-      }).toList();
-    }
-
-    if (selectedDate.value != null) {
-      final targetDate = selectedDate.value!;
-      filtered = filtered.where((apt) {
-        final aptDate = apt.dateTime;
-        return aptDate.year == targetDate.year &&
-            aptDate.month == targetDate.month &&
-            aptDate.day == targetDate.day;
-      }).toList();
-    }
-
-    filtered.sort((a, b) => a.dateTime.compareTo(b.dateTime));
-    filteredAppointments.value = filtered;
   }
 
   void setFilter(String filter) {
@@ -341,50 +286,87 @@ class AppointmentAdminController extends GetxController {
     selectedDate.value = date;
   }
 
-  void clearDateFilter() {
-    selectedDate.value = null;
-  }
-
   void clearFilters() {
     selectedFilter.value = 'all';
     searchQuery.value = '';
     selectedDate.value = null;
   }
 
-  Future<bool> completeAppointment(String appointmentId, {String? notes}) async {
-    try {
-      debugPrint('=== completeAppointment() ===');
-      debugPrint('Appointment ID: $appointmentId');
+  void _applyFilters() {
+    var filtered = List<AppointmentModel>.from(allAppointments);
 
-      final success = await _mediumService.updateAppointmentStatus(appointmentId, 'completed');
-
-      if (success) {
-        final appointment = allAppointments.firstWhereOrNull((apt) => apt.id == appointmentId);
-        if (appointment != null && currentMediumId != null) {
-          await _mediumService.recordEarning(
-            currentMediumId!,
-            appointment.amount,
-            appointmentId,
-          );
+    // Filtro por status
+    if (selectedFilter.value != 'all') {
+      filtered = filtered.where((appointment) {
+        switch (selectedFilter.value) {
+          case 'pending':
+            return appointment.isPending;
+          case 'confirmed':
+            return appointment.isConfirmed;
+          case 'completed':
+            return appointment.isCompleted;
+          case 'canceled':
+            return appointment.isCancelled;
+          default:
+            return true;
         }
-
-        _updateAppointmentInList(appointmentId, 'completed');
-        Get.snackbar(
-          'Consulta Finalizada',
-          'A consulta foi marcada como concluída e o valor foi adicionado à sua carteira (80% - após desconto de 20% para o Oraculum)',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-          duration: Duration(seconds: 4),
-        );
-      } else {
-        Get.snackbar('Erro', 'Não foi possível finalizar a consulta');
-      }
-
-      return success;
-    } catch (e) {
-      debugPrint('❌ Erro ao finalizar consulta: $e');
-      Get.snackbar('Erro', 'Erro ao finalizar consulta: $e');
-      return false;
+      }).toList();
     }
+
+    // Filtro por busca
+    if (searchQuery.value.isNotEmpty) {
+      final query = searchQuery.value.toLowerCase();
+      filtered = filtered.where((appointment) =>
+      appointment.clientName.toLowerCase().contains(query) ||
+          appointment.consultationType.toLowerCase().contains(query) ||
+          appointment.description.toLowerCase().contains(query)
+      ).toList();
+    }
+
+    // Filtro por data
+    if (selectedDate.value != null) {
+      final filterDate = selectedDate.value!;
+      final startOfDay = DateTime(filterDate.year, filterDate.month, filterDate.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+
+      filtered = filtered.where((appointment) =>
+      appointment.scheduledDate.isAfter(startOfDay) &&
+          appointment.scheduledDate.isBefore(endOfDay)
+      ).toList();
+    }
+
+    filteredAppointments.value = filtered;
+  }
+
+  // Getters para estatísticas
+  List<AppointmentModel> get pendingAppointments =>
+      filteredAppointments.where((apt) => apt.isPending).toList();
+
+  List<AppointmentModel> get confirmedAppointments =>
+      filteredAppointments.where((apt) => apt.isConfirmed).toList();
+
+  List<AppointmentModel> get completedAppointments =>
+      filteredAppointments.where((apt) => apt.isCompleted).toList();
+
+  List<AppointmentModel> get cancelledAppointments =>
+      filteredAppointments.where((apt) => apt.isCancelled).toList();
+
+  List<AppointmentModel> get todayAppointments {
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
+    return filteredAppointments.where((appointment) =>
+    appointment.scheduledDate.isAfter(startOfDay) &&
+        appointment.scheduledDate.isBefore(endOfDay)
+    ).toList();
+  }
+
+  List<AppointmentModel> get upcomingAppointments {
+    final now = DateTime.now();
+    return filteredAppointments.where((appointment) =>
+    (appointment.isPending || appointment.isConfirmed) &&
+        appointment.scheduledDate.isAfter(now)
+    ).toList();
   }
 }

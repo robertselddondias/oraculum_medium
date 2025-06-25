@@ -1,212 +1,216 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
-import 'package:intl/date_symbol_data_local.dart';
 import 'package:oraculum_medium/config/theme.dart';
 import 'package:oraculum_medium/models/appointment_model.dart';
 
 class AppointmentCard extends StatelessWidget {
   final AppointmentModel appointment;
+  final bool isMediumView;
+  final VoidCallback? onTap;
   final VoidCallback? onConfirm;
   final VoidCallback? onCancel;
   final VoidCallback? onComplete;
-  final VoidCallback? onTap;
   final bool showActions;
   final bool isPending;
-  final bool isUpcoming;
-  final bool isMediumView;
 
   const AppointmentCard({
     super.key,
     required this.appointment,
+    this.isMediumView = true,
+    this.onTap,
     this.onConfirm,
     this.onCancel,
     this.onComplete,
-    this.onTap,
     this.showActions = false,
     this.isPending = false,
-    this.isUpcoming = false,
-    this.isMediumView = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: AppTheme.cardDecoration.copyWith(
-          border: Border.all(
-            color: _getBorderColor(),
-            width: 1.5,
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 400;
+    final statusColor = _getStatusColor(appointment.status);
+    final dateFormat = DateFormat('dd/MM/yyyy');
+    final timeFormat = DateFormat('HH:mm');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withOpacity(0.1),
+            Colors.white.withOpacity(0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(isSmallScreen, statusColor),
+                const SizedBox(height: 16),
+                _buildAppointmentInfo(isSmallScreen),
+                if (showActions) ...[
+                  const SizedBox(height: 16),
+                  _buildActionButtons(isSmallScreen),
+                ],
+              ],
+            ),
           ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _buildStatusBadge(),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _getDisplayName(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _getSpecialtyText(),
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
+      ),
+    ).animate().fadeIn(duration: 500.ms).slideX(begin: 0.1, end: 0);
+  }
+
+  Widget _buildHeader(bool isSmallScreen, Color statusColor) {
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: isSmallScreen ? 20 : 24,
+          backgroundColor: AppTheme.primaryColor.withOpacity(0.3),
+          child: Icon(
+            Icons.person,
+            size: isSmallScreen ? 20 : 24,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                appointment.clientName,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: isSmallScreen ? 16 : 18,
+                  fontWeight: FontWeight.bold,
                 ),
-                Text(
-                  'R\$ ${appointment.amount.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: AppTheme.successColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                const Icon(
-                  Icons.access_time,
-                  color: Colors.white60,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _formatDateTime(),
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
-                const Spacer(),
-                const Icon(
-                  Icons.schedule,
-                  color: Colors.white60,
-                  size: 16,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${appointment.durationMinutes} min',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-            if (appointment.notes?.isNotEmpty == true) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.note_alt_outlined,
-                      color: Colors.white60,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        appointment.notes!,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                appointment.consultationType,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: isSmallScreen ? 13 : 14,
                 ),
               ),
             ],
-            if (showActions && _shouldShowActions()) ...[
-              const SizedBox(height: 16),
-              _buildActionButtons(),
-            ],
-          ],
+          ),
         ),
-      ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: statusColor.withOpacity(0.5),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            appointment.statusText,
+            style: TextStyle(
+              color: statusColor,
+              fontSize: isSmallScreen ? 11 : 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildStatusBadge() {
-    Color badgeColor;
-    String badgeText;
-    IconData badgeIcon;
+  Widget _buildAppointmentInfo(bool isSmallScreen) {
+    final dateFormat = DateFormat('dd/MM/yyyy');
+    final timeFormat = DateFormat('HH:mm');
 
-    switch (appointment.status) {
-      case 'pending':
-        badgeColor = AppTheme.warningColor;
-        badgeText = 'Pendente';
-        badgeIcon = Icons.schedule;
-        break;
-      case 'confirmed':
-        badgeColor = AppTheme.primaryColor;
-        badgeText = 'Confirmada';
-        badgeIcon = Icons.check_circle;
-        break;
-      case 'completed':
-        badgeColor = AppTheme.successColor;
-        badgeText = 'Concluída';
-        badgeIcon = Icons.done_all;
-        break;
-      case 'canceled':
-        badgeColor = AppTheme.errorColor;
-        badgeText = 'Cancelada';
-        badgeIcon = Icons.cancel;
-        break;
-      default:
-        badgeColor = Colors.grey;
-        badgeText = 'Desconhecido';
-        badgeIcon = Icons.help;
-    }
+    return Column(
+      children: [
+        Row(
+          children: [
+            _buildInfoChip(
+              Icons.calendar_today,
+              dateFormat.format(appointment.scheduledDate),
+              isSmallScreen,
+            ),
+            const SizedBox(width: 12),
+            _buildInfoChip(
+              Icons.access_time,
+              timeFormat.format(appointment.scheduledDate),
+              isSmallScreen,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            _buildInfoChip(
+              Icons.timer,
+              '${appointment.duration} min',
+              isSmallScreen,
+            ),
+            const SizedBox(width: 12),
+            _buildInfoChip(
+              Icons.attach_money,
+              appointment.formattedAmount,
+              isSmallScreen,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
+  Widget _buildInfoChip(IconData icon, String text, bool isSmallScreen) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? 8 : 10,
+        vertical: isSmallScreen ? 4 : 6,
+      ),
       decoration: BoxDecoration(
-        color: badgeColor.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: badgeColor.withOpacity(0.5)),
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            badgeIcon,
-            color: badgeColor,
-            size: 12,
+            icon,
+            size: isSmallScreen ? 14 : 16,
+            color: Colors.white.withOpacity(0.8),
           ),
           const SizedBox(width: 4),
           Text(
-            badgeText,
+            text,
             style: TextStyle(
-              color: badgeColor,
-              fontSize: 10,
+              color: Colors.white.withOpacity(0.8),
+              fontSize: isSmallScreen ? 11 : 12,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -215,105 +219,114 @@ class AppointmentCard extends StatelessWidget {
     );
   }
 
-  bool _shouldShowActions() {
-    return appointment.status != 'completed' && appointment.status != 'canceled';
+  Widget _buildActionButtons(bool isSmallScreen) {
+    if (isPending && appointment.isPending) {
+      return Row(
+        children: [
+          if (onConfirm != null)
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: onConfirm,
+                icon: const Icon(Icons.check, color: Colors.white, size: 18),
+                label: const Text(
+                  'Aceitar',
+                  style: TextStyle(color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          if (onConfirm != null && onCancel != null) const SizedBox(width: 12),
+          if (onCancel != null)
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: onCancel,
+                icon: const Icon(Icons.close, color: Colors.red, size: 18),
+                label: const Text(
+                  'Recusar',
+                  style: TextStyle(color: Colors.red),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.red),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        if (appointment.isConfirmed && onComplete != null)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onComplete,
+              icon: const Icon(Icons.check_circle, color: Colors.white, size: 18),
+              label: const Text(
+                'Marcar como Concluída',
+                style: TextStyle(color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+        if ((appointment.isPending || appointment.isConfirmed) && onCancel != null) ...[
+          if (appointment.isConfirmed && onComplete != null) const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onCancel,
+              icon: Icon(
+                appointment.isPending ? Icons.close : Icons.cancel_outlined,
+                color: appointment.isPending ? Colors.red : Colors.orange,
+                size: 18,
+              ),
+              label: Text(
+                appointment.isPending ? 'Recusar' : 'Cancelar',
+                style: TextStyle(
+                  color: appointment.isPending ? Colors.red : Colors.orange,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(
+                  color: appointment.isPending ? Colors.red : Colors.orange,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
   }
 
-  Widget _buildActionButtons() {
-    List<Widget> buttons = [];
-
-    if (appointment.status == 'pending' && onConfirm != null) {
-      buttons.add(
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: onConfirm,
-            icon: const Icon(Icons.check, size: 16),
-            label: const Text('Confirmar'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-            ),
-          ),
-        ),
-      );
-    }
-
-    if ((appointment.status == 'pending' || appointment.status == 'confirmed') && onCancel != null) {
-      if (buttons.isNotEmpty) buttons.add(const SizedBox(width: 12));
-      buttons.add(
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: onCancel,
-            icon: const Icon(Icons.close, size: 16),
-            label: const Text('Cancelar'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.warningColor,
-              side: const BorderSide(color: AppTheme.warningColor),
-              padding: const EdgeInsets.symmetric(vertical: 8),
-            ),
-          ),
-        ),
-      );
-    }
-
-    if (appointment.status == 'confirmed' && onComplete != null) {
-      if (buttons.isNotEmpty) buttons.add(const SizedBox(width: 12));
-      buttons.add(
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: onComplete,
-            icon: const Icon(Icons.done, size: 16),
-            label: const Text('Finalizar'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.successColor,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Row(children: buttons);
-  }
-
-  Color _getBorderColor() {
-    if (isPending) return AppTheme.warningColor.withOpacity(0.3);
-    if (isUpcoming) return AppTheme.primaryColor.withOpacity(0.3);
-
-    switch (appointment.status) {
+  Color _getStatusColor(String status) {
+    switch (status) {
       case 'pending':
-        return AppTheme.warningColor.withOpacity(0.3);
+        return Colors.orange;
       case 'confirmed':
-        return AppTheme.primaryColor.withOpacity(0.3);
+        return Colors.blue;
       case 'completed':
-        return AppTheme.successColor.withOpacity(0.3);
+        return Colors.green;
+      case 'cancelled':
       case 'canceled':
-        return AppTheme.errorColor.withOpacity(0.3);
+        return Colors.red;
       default:
-        return Colors.white.withOpacity(0.1);
-    }
-  }
-
-  String _formatDateTime() {
-    try {
-      final formatter = DateFormat('dd/MM - HH:mm');
-      return formatter.format(appointment.dateTime);
-    } catch (e) {
-      return '${appointment.dateTime.day.toString().padLeft(2, '0')}/${appointment.dateTime.month.toString().padLeft(2, '0')} - ${appointment.dateTime.hour.toString().padLeft(2, '0')}:${appointment.dateTime.minute.toString().padLeft(2, '0')}';
-    }
-  }
-
-  String _getSpecialtyText() {
-    return appointment.mediumSpecialty ?? 'Consulta espiritual';
-  }
-
-  String _getDisplayName() {
-    if (isMediumView) {
-      // Se é a visualização do médium, mostrar nome do cliente
-      return appointment.userName ?? 'Cliente';
-    } else {
-      // Se é a visualização do cliente, mostrar nome do médium
-      return appointment.mediumName ?? 'Médium';
+        return Colors.grey;
     }
   }
 }

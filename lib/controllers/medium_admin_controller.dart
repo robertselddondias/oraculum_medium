@@ -286,9 +286,9 @@ class MediumAdminController extends GetxController {
       final today = DateTime(now.year, now.month, now.day);
 
       todayAppointments.value = appointments.where((apt) =>
-      apt.dateTime.year == today.year &&
-          apt.dateTime.month == today.month &&
-          apt.dateTime.day == today.day
+      apt.scheduledDate.year == today.year &&
+          apt.scheduledDate.month == today.month &&
+          apt.scheduledDate.day == today.day
       ).length;
 
       pendingAppointments.value = appointments.where((apt) =>
@@ -299,13 +299,13 @@ class MediumAdminController extends GetxController {
       apt.status == 'canceled'
       ).length;
 
-      final uniqueClients = appointments.map((apt) => apt.userId).toSet();
+      final uniqueClients = appointments.map((apt) => apt.clientId).toSet();
       activeClients.value = uniqueClients.length;
 
       final lastMonth = now.subtract(const Duration(days: 30));
       newClients.value = appointments.where((apt) =>
-          apt.dateTime.isAfter(lastMonth)
-      ).map((apt) => apt.userId).toSet().length;
+          apt.scheduledDate.isAfter(lastMonth)
+      ).map((apt) => apt.clientId).toSet().length;
 
       performanceMetrics.value = {
         'totalAppointments': totalAppointments.value,

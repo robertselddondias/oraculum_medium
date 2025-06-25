@@ -149,10 +149,10 @@ class MediumService extends GetxService {
 
       final allAppointments = await getMediumAppointments(mediumId);
       final monthlyAppointments = allAppointments
-          .where((apt) => apt.dateTime.isAfter(startOfMonth))
+          .where((apt) => apt.scheduledDate.isAfter(startOfMonth))
           .toList();
       final weeklyAppointments = allAppointments
-          .where((apt) => apt.dateTime.isAfter(startOfWeek))
+          .where((apt) => apt.scheduledDate.isAfter(startOfWeek))
           .toList();
 
       final completedAppointments = allAppointments
@@ -165,10 +165,10 @@ class MediumService extends GetxService {
 
       for (final apt in completedAppointments) {
         totalEarnings += apt.amount;
-        if (apt.dateTime.isAfter(startOfMonth)) {
+        if (apt.scheduledDate.isAfter(startOfMonth)) {
           monthlyEarnings += apt.amount;
         }
-        if (apt.dateTime.isAfter(startOfWeek)) {
+        if (apt.scheduledDate.isAfter(startOfWeek)) {
           weeklyEarnings += apt.amount;
         }
       }
