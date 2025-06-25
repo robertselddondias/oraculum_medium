@@ -2,163 +2,175 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AppointmentModel {
   final String id;
-  final String userId;
+  final String clientId;
   final String mediumId;
-  final DateTime dateTime;
-  final int durationMinutes;
-  final String status;
-  final String paymentId;
+  final String mediumName;
+  final String? mediumImageUrl;
+  final String clientName;
+  final DateTime scheduledDate;
+  final int duration;
   final double amount;
+  final String status;
+  final String description;
+  final String consultationType;
   final DateTime createdAt;
-  final String? notes;
+  final DateTime? updatedAt;
+  final DateTime? completedAt;
+  final DateTime? canceledAt;
+  final String? cancelReason;
   final String? feedback;
   final double? rating;
-  final String? userName;
-  final String? userPhone;
-  final String? userEmail;
-  final String? mediumName;
-  final String? mediumSpecialty;
-  final String? cancelReason;
-  final DateTime? canceledAt;
-  final DateTime? completedAt;
-  final String? type;
+  final Map<String, dynamic>? paymentInfo;
   final String? paymentStatus;
   final String? paymentMethod;
 
   AppointmentModel({
     required this.id,
-    required this.userId,
+    required this.clientId,
     required this.mediumId,
-    required this.dateTime,
-    required this.durationMinutes,
-    required this.status,
-    required this.paymentId,
+    required this.mediumName,
+    required this.clientName,
+    required this.scheduledDate,
+    required this.duration,
     required this.amount,
+    required this.status,
+    this.description = '',
+    this.consultationType = 'Consulta Geral',
     required this.createdAt,
-    this.notes,
+    this.updatedAt,
+    this.completedAt,
+    this.canceledAt,
+    this.cancelReason,
     this.feedback,
     this.rating,
-    this.userName,
-    this.userPhone,
-    this.userEmail,
-    this.mediumName,
-    this.mediumSpecialty,
-    this.cancelReason,
-    this.canceledAt,
-    this.completedAt,
-    this.type,
+    this.paymentInfo,
     this.paymentStatus,
     this.paymentMethod,
+    this.mediumImageUrl
   });
 
   factory AppointmentModel.fromMap(Map<String, dynamic> map, String id) {
     return AppointmentModel(
       id: id,
-      userId: map['userId'] ?? '',
+      clientId: map['clientId'] ?? '',
       mediumId: map['mediumId'] ?? '',
-      dateTime: (map['dateTime'] as Timestamp).toDate(),
-      durationMinutes: map['durationMinutes'] ?? 0,
-      status: map['status'] ?? 'pending',
-      paymentId: map['paymentId'] ?? '',
+      mediumName: map['mediumName'] ?? '',
+      clientName: map['clientName'] ?? '',
+      scheduledDate: _parseDateTime(map['scheduledDate']),
+      duration: map['duration'] ?? 30,
       amount: (map['amount'] ?? 0.0).toDouble(),
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      notes: map['notes'],
+      status: map['status'] ?? 'pending',
+      description: map['description'] ?? '',
+      consultationType: map['consultationType'] ?? 'Consulta Geral',
+      createdAt: _parseDateTime(map['createdAt']),
+      updatedAt: map['updatedAt'] != null ? _parseDateTime(map['updatedAt']) : null,
+      completedAt: map['completedAt'] != null ? _parseDateTime(map['completedAt']) : null,
+      canceledAt: map['canceledAt'] != null ? _parseDateTime(map['canceledAt']) : null,
+      cancelReason: map['cancelReason'],
       feedback: map['feedback'],
       rating: map['rating'] != null ? (map['rating'] as num).toDouble() : null,
-      userName: map['userName'],
-      userPhone: map['userPhone'],
-      userEmail: map['userEmail'],
-      mediumName: map['mediumName'],
-      mediumSpecialty: map['mediumSpecialty'],
-      cancelReason: map['cancelReason'],
-      canceledAt: map['canceledAt'] != null ? (map['canceledAt'] as Timestamp).toDate() : null,
-      completedAt: map['completedAt'] != null ? (map['completedAt'] as Timestamp).toDate() : null,
-      type: map['type'],
+      paymentInfo: map['paymentInfo'],
       paymentStatus: map['paymentStatus'],
       paymentMethod: map['paymentMethod'],
+      mediumImageUrl: map['mediumImageUrl'],
     );
+  }
+
+  static DateTime _parseDateTime(dynamic value) {
+    if (value == null) return DateTime.now();
+
+    if (value is Timestamp) {
+      return value.toDate();
+    } else if (value is String) {
+      return DateTime.parse(value);
+    } else if (value is DateTime) {
+      return value;
+    }
+
+    return DateTime.now();
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'userId': userId,
+      'clientId': clientId,
       'mediumId': mediumId,
-      'dateTime': Timestamp.fromDate(dateTime),
-      'durationMinutes': durationMinutes,
-      'status': status,
-      'paymentId': paymentId,
+      'mediumName': mediumName,
+      'clientName': clientName,
+      'scheduledDate': Timestamp.fromDate(scheduledDate),
+      'duration': duration,
       'amount': amount,
+      'status': status,
+      'description': description,
+      'consultationType': consultationType,
       'createdAt': Timestamp.fromDate(createdAt),
-      'notes': notes,
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      'completedAt': completedAt != null ? Timestamp.fromDate(completedAt!) : null,
+      'canceledAt': canceledAt != null ? Timestamp.fromDate(canceledAt!) : null,
+      'cancelReason': cancelReason,
       'feedback': feedback,
       'rating': rating,
-      'userName': userName,
-      'userPhone': userPhone,
-      'userEmail': userEmail,
-      'mediumName': mediumName,
-      'mediumSpecialty': mediumSpecialty,
-      'cancelReason': cancelReason,
-      'canceledAt': canceledAt != null ? Timestamp.fromDate(canceledAt!) : null,
-      'completedAt': completedAt != null ? Timestamp.fromDate(completedAt!) : null,
-      'type': type,
+      'paymentInfo': paymentInfo,
       'paymentStatus': paymentStatus,
       'paymentMethod': paymentMethod,
+      'mediumImageUrl': mediumImageUrl
     };
   }
 
   AppointmentModel copyWith({
     String? id,
-    String? userId,
+    String? clientId,
     String? mediumId,
-    DateTime? dateTime,
-    int? durationMinutes,
-    String? status,
-    String? paymentId,
+    String? mediumName,
+    String? clientName,
+    DateTime? scheduledDate,
+    int? duration,
     double? amount,
+    String? status,
+    String? description,
+    String? consultationType,
     DateTime? createdAt,
-    String? notes,
+    DateTime? updatedAt,
+    DateTime? completedAt,
+    DateTime? canceledAt,
+    String? cancelReason,
     String? feedback,
     double? rating,
-    String? userName,
-    String? userPhone,
-    String? userEmail,
-    String? mediumName,
-    String? mediumSpecialty,
-    String? cancelReason,
-    DateTime? canceledAt,
-    DateTime? completedAt,
-    String? type,
+    Map<String, dynamic>? paymentInfo,
     String? paymentStatus,
     String? paymentMethod,
+    String? mediumImageUrl
   }) {
     return AppointmentModel(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      mediumId: mediumId ?? this.mediumId,
-      dateTime: dateTime ?? this.dateTime,
-      durationMinutes: durationMinutes ?? this.durationMinutes,
-      status: status ?? this.status,
-      paymentId: paymentId ?? this.paymentId,
-      amount: amount ?? this.amount,
-      createdAt: createdAt ?? this.createdAt,
-      notes: notes ?? this.notes,
-      feedback: feedback ?? this.feedback,
-      rating: rating ?? this.rating,
-      userName: userName ?? this.userName,
-      userPhone: userPhone ?? this.userPhone,
-      userEmail: userEmail ?? this.userEmail,
-      mediumName: mediumName ?? this.mediumName,
-      mediumSpecialty: mediumSpecialty ?? this.mediumSpecialty,
-      cancelReason: cancelReason ?? this.cancelReason,
-      canceledAt: canceledAt ?? this.canceledAt,
-      completedAt: completedAt ?? this.completedAt,
-      type: type ?? this.type,
-      paymentStatus: paymentStatus ?? this.paymentStatus,
-      paymentMethod: paymentMethod ?? this.paymentMethod,
+        id: id ?? this.id,
+        clientId: clientId ?? this.clientId,
+        mediumId: mediumId ?? this.mediumId,
+        mediumName: mediumName ?? this.mediumName,
+        clientName: clientName ?? this.clientName,
+        scheduledDate: scheduledDate ?? this.scheduledDate,
+        duration: duration ?? this.duration,
+        amount: amount ?? this.amount,
+        status: status ?? this.status,
+        description: description ?? this.description,
+        consultationType: consultationType ?? this.consultationType,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        completedAt: completedAt ?? this.completedAt,
+        canceledAt: canceledAt ?? this.canceledAt,
+        cancelReason: cancelReason ?? this.cancelReason,
+        feedback: feedback ?? this.feedback,
+        rating: rating ?? this.rating,
+        paymentInfo: paymentInfo ?? this.paymentInfo,
+        paymentStatus: paymentStatus ?? this.paymentStatus,
+        paymentMethod: paymentMethod ?? this.paymentMethod,
+        mediumImageUrl: mediumImageUrl ?? this.mediumImageUrl
     );
   }
 
-  int get duration => durationMinutes;
+  // Status getters
+  bool get isPending => status == 'pending';
+  bool get isConfirmed => status == 'confirmed';
+  bool get isCompleted => status == 'completed';
+  bool get isCancelled => status == 'cancelled' || status == 'canceled';
 
   String get statusText {
     switch (status) {
@@ -168,6 +180,7 @@ class AppointmentModel {
         return 'Confirmado';
       case 'completed':
         return 'Concluído';
+      case 'cancelled':
       case 'canceled':
         return 'Cancelado';
       default:
@@ -175,35 +188,32 @@ class AppointmentModel {
     }
   }
 
-  String get formattedAmount {
-    return 'R\$ ${amount.toStringAsFixed(2)}';
+  // Formatters
+  String get formattedAmount => 'R\$ ${amount.toStringAsFixed(2)}';
+  String get formattedDuration => '$duration min';
+
+  // Helper methods
+  bool get canBeCancelled {
+    return (isPending || isConfirmed) &&
+        scheduledDate.isAfter(DateTime.now().add(const Duration(hours: 2)));
   }
 
-  String get formattedDuration {
-    return '${durationMinutes} min';
+  bool get isUpcoming {
+    return (isPending || isConfirmed) &&
+        scheduledDate.isAfter(DateTime.now());
   }
 
-  bool get isPending => status == 'pending';
-  bool get isConfirmed => status == 'confirmed';
-  bool get isCompleted => status == 'completed';
-  bool get isCanceled => status == 'canceled';
-
-  bool get canBeConfirmed => status == 'pending';
-  bool get canBeCanceled => status == 'pending' || status == 'confirmed';
-  bool get canBeCompleted => status == 'confirmed';
-
-  DateTime get endTime => dateTime.add(Duration(minutes: durationMinutes));
-
-  bool get isToday {
-    final now = DateTime.now();
-    return dateTime.year == now.year &&
-        dateTime.month == now.month &&
-        dateTime.day == now.day;
+  @override
+  String toString() {
+    return 'AppointmentModel(id: $id, mediumName: $mediumName, scheduledDate: $scheduledDate, status: $status)';
   }
 
-  bool get isPast => dateTime.isBefore(DateTime.now());
-  bool get isFuture => dateTime.isAfter(DateTime.now());
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is AppointmentModel && other.id == id;
+  }
 
-  Duration get timeUntilAppointment => dateTime.difference(DateTime.now());
-  Duration? get timeSinceAppointment => isPast ? DateTime.now().difference(dateTime) : null;
+  @override
+  int get hashCode => id.hashCode;
 }
