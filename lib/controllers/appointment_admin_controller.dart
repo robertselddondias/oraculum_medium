@@ -217,7 +217,7 @@ class AppointmentAdminController extends GetxController {
     }
   }
 
-  Future<bool> cancelAppointment(String appointmentId, {String? reason}) async {
+  Future<bool> cancelAppointment(String appointmentId, String? reason) async {
     try {
       await _firebaseService.firestore
           .collection('appointments')

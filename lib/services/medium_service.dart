@@ -76,14 +76,14 @@ class MediumService extends GetxService {
       }
 
       if (startDate != null) {
-        query = query.where('dateTime', isGreaterThanOrEqualTo: startDate);
+        query = query.where('scheduledDate', isGreaterThanOrEqualTo: startDate);
       }
 
       if (endDate != null) {
-        query = query.where('dateTime', isLessThanOrEqualTo: endDate);
+        query = query.where('scheduledDate', isLessThanOrEqualTo: endDate);
       }
 
-      query = query.orderBy('dateTime', descending: true);
+      query = query.orderBy('scheduledDate', descending: true);
 
       final snapshot = await query.get();
       final appointments = snapshot.docs
@@ -104,15 +104,73 @@ class MediumService extends GetxService {
       debugPrint('Appointment ID: $appointmentId');
       debugPrint('New Status: $newStatus');
 
-      await _firestore.collection(appointmentsCollection).doc(appointmentId).update({
+      final updateData = {
         'status': newStatus,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+
+      if (newStatus == 'completed') {
+        updateData['completedAt'] = FieldValue.serverTimestamp();
+      } else if (newStatus == 'cancelled' || newStatus == 'canceled') {
+        updateData['canceledAt'] = FieldValue.serverTimestamp();
+      }
+
+      await _firestore.collection(appointmentsCollection).doc(appointmentId).update(updateData);
 
       debugPrint('✅ Status da consulta atualizado');
       return true;
     } catch (e) {
       debugPrint('❌ Erro ao atualizar status da consulta: $e');
+      return false;
+    }
+  }
+
+  Future<bool> cancelAppointment(String appointmentId, String cancelReason) async {
+    try {
+      debugPrint('=== cancelAppointment() ===');
+      debugPrint('Appointment ID: $appointmentId');
+      debugPrint('Cancel Reason: $cancelReason');
+
+      await _firestore.collection(appointmentsCollection).doc(appointmentId).update({
+        'status': 'cancelled',
+        'cancelReason': cancelReason,
+        'canceledAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      debugPrint('✅ Consulta cancelada com sucesso');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Erro ao cancelar consulta: $e');
+      return false;
+    }
+  }
+
+  Future<bool> completeAppointment(String appointmentId, {String? feedback, double? rating}) async {
+    try {
+      debugPrint('=== completeAppointment() ===');
+      debugPrint('Appointment ID: $appointmentId');
+
+      final updateData = {
+        'status': 'completed',
+        'completedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (feedback != null) {
+        updateData['feedback'] = feedback;
+      }
+
+      if (rating != null) {
+        updateData['rating'] = rating;
+      }
+
+      await _firestore.collection(appointmentsCollection).doc(appointmentId).update(updateData);
+
+      debugPrint('✅ Consulta finalizada com sucesso');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Erro ao finalizar consulta: $e');
       return false;
     }
   }
@@ -156,7 +214,7 @@ class MediumService extends GetxService {
           .toList();
 
       final completedAppointments = allAppointments
-          .where((apt) => apt.status == 'completed')
+          .where((apt) => apt.isCompleted)
           .toList();
 
       double totalEarnings = 0;
@@ -224,6 +282,38 @@ class MediumService extends GetxService {
     } catch (e) {
       debugPrint('❌ Erro ao calcular avaliação média: $e');
       return 0.0;
+    }
+  }
+
+  Future<List<AppointmentModel>> getTodayAppointments(String mediumId) async {
+    try {
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+
+      return await getMediumAppointments(
+        mediumId,
+        startDate: startOfDay,
+        endDate: endOfDay,
+      );
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar consultas de hoje: $e');
+      return [];
+    }
+  }
+
+  Future<List<AppointmentModel>> getUpcomingAppointments(String mediumId) async {
+    try {
+      final now = DateTime.now();
+      final appointments = await getMediumAppointments(mediumId, startDate: now);
+
+      return appointments
+          .where((apt) => apt.isUpcoming)
+          .toList()
+        ..sort((a, b) => a.scheduledDate.compareTo(b.scheduledDate));
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar consultas próximas: $e');
+      return [];
     }
   }
 

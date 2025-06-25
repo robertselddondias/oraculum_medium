@@ -70,25 +70,30 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isMedium ? 'Minhas Consultas' : 'Minhas Consultas',
+                  isMedium ? 'Minhas Consultas' : 'Gerenciar Consultas',
                   style: const TextStyle(
+                    color: Colors.white,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
                   ),
                 ),
+                const SizedBox(height: 4),
                 Obx(() => Text(
                   '${_controller.filteredAppointments.length} consulta(s) encontrada(s)',
                   style: TextStyle(
-                    fontSize: 14,
                     color: Colors.white.withOpacity(0.7),
+                    fontSize: 14,
                   ),
                 )),
               ],
             ),
           ),
           IconButton(
-            onPressed: () => _controller.refreshAppointments(),
+            onPressed: () => _showSearchDialog(),
+            icon: const Icon(Icons.search, color: Colors.white),
+          ),
+          IconButton(
+            onPressed: () => _controller.loadAppointments(),
             icon: const Icon(Icons.refresh, color: Colors.white),
           ),
         ],
@@ -98,56 +103,37 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen> {
 
   Widget _buildFilters() {
     return Container(
+      height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
+      child: Row(
         children: [
-          TextField(
-            controller: _searchController,
-            onChanged: _controller.setSearchQuery,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              hintText: isMedium ? 'Buscar por cliente...' : 'Buscar por médium...',
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-              prefixIcon: const Icon(Icons.search, color: Colors.white),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppTheme.primaryColor),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _buildFilterChips()),
-              const SizedBox(width: 16),
-              _buildDateFilterButton(),
-            ],
-          ),
+          Expanded(child: _buildFilterChips()),
+          _buildDateFilterButton(),
         ],
       ),
     );
   }
 
   Widget _buildFilterChips() {
-    return Obx(() => SingleChildScrollView(
+    final filters = [
+      {'key': 'all', 'label': 'Todas'},
+      {'key': 'pending', 'label': 'Pendentes'},
+      {'key': 'confirmed', 'label': 'Confirmadas'},
+      {'key': 'completed', 'label': 'Concluídas'},
+      {'key': 'cancelled', 'label': 'Canceladas'},
+    ];
+
+    return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: Row(
-        children: _controller.filterOptions.map((filter) {
-          final isSelected = _controller.selectedFilter.value == filter;
+      child: Obx(() => Row(
+        children: filters.map((filter) {
+          final isSelected = _controller.selectedFilter.value == filter['key'];
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: FilterChip(
-              label: Text(_controller.filterLabels[filter]!),
+              label: Text(filter['label']!),
               selected: isSelected,
-              onSelected: (selected) => _controller.setFilter(filter),
+              onSelected: (selected) => _controller.setFilter(filter['key']!),
               backgroundColor: Colors.white.withOpacity(0.1),
               selectedColor: AppTheme.primaryColor,
               labelStyle: TextStyle(
@@ -159,8 +145,8 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen> {
             ),
           );
         }).toList(),
-      ),
-    ));
+      )),
+    );
   }
 
   Widget _buildDateFilterButton() {
@@ -213,7 +199,6 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen> {
               onComplete: isMedium && appointment.status == 'confirmed'
                   ? () => _controller.completeAppointment(appointment.id)
                   : null,
-              showActions: appointment.status != 'completed' && appointment.status != 'canceled',
             );
           },
         ),
@@ -227,37 +212,75 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.event_busy,
-            size: 80,
-            color: Colors.white.withOpacity(0.3),
+            Icons.calendar_today_outlined,
+            size: 64,
+            color: Colors.white.withOpacity(0.5),
           ),
           const SizedBox(height: 16),
           Text(
             'Nenhuma consulta encontrada',
             style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
               fontSize: 18,
               fontWeight: FontWeight.w500,
-              color: Colors.white.withOpacity(0.7),
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            isMedium
-                ? 'Suas consultas aparecerão aqui'
-                : 'Suas consultas agendadas aparecerão aqui',
+            'Não há consultas para os filtros selecionados.',
             style: TextStyle(
+              color: Colors.white.withOpacity(0.6),
               fontSize: 14,
-              color: Colors.white.withOpacity(0.5),
             ),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
-            onPressed: () => _controller.refreshAppointments(),
-            icon: const Icon(Icons.refresh),
-            label: const Text('Atualizar'),
+            onPressed: () => _controller.clearFilters(),
+            icon: const Icon(Icons.clear_all),
+            label: const Text('Limpar Filtros'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSearchDialog() {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Buscar Consulta'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _searchController,
+              decoration: const InputDecoration(
+                labelText: 'Nome do cliente ou ID',
+                hintText: 'Digite para buscar...',
+                prefixIcon: Icon(Icons.search),
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              _searchController.clear();
+              Get.back();
+            },
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // _controller.(_searchController.text);
+              Get.back();
+            },
+            child: const Text('Buscar'),
           ),
         ],
       ),
@@ -267,119 +290,36 @@ class _AppointmentsListScreenState extends State<AppointmentsListScreen> {
   void _showDateFilter() {
     showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: _controller.selectedDate.value ?? DateTime.now(),
       firstDate: DateTime.now().subtract(const Duration(days: 365)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppTheme.primaryColor,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    ).then((selectedDate) {
-      if (selectedDate != null) {
-        _controller.setDateFilter(selectedDate);
+      locale: const Locale('pt', 'BR'),
+    ).then((date) {
+      if (date != null) {
+        _controller.setDateFilter(date);
       }
     });
   }
 
   void _showCancelDialog(String appointmentId) {
-    final TextEditingController reasonController = TextEditingController();
-
     Get.dialog(
-      Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.8),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
+      AlertDialog(
+        title: const Text('Cancelar Consulta'),
+        content: const Text('Deseja realmente cancelar esta consulta? Esta ação não pode ser desfeita.'),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Não'),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.cancel_outlined,
-                color: Colors.red,
-                size: 48,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Cancelar Consulta',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Tem certeza que deseja cancelar esta consulta?',
-                style: TextStyle(color: Colors.white70),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: reasonController,
-                maxLines: 3,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Motivo do cancelamento (opcional)',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.red),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  TextButton(
-                    onPressed: () => Get.back(),
-                    child: const Text(
-                      'Voltar',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      Get.back();
-                      _controller.cancelAppointment(
-                        appointmentId,
-                        reasonController.text.trim(),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                    ),
-                    child: const Text(
-                      'Cancelar Consulta',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          ElevatedButton(
+            onPressed: () {
+              _controller.cancelAppointment(appointmentId, null);
+              Get.back();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Sim, Cancelar'),
           ),
-        ),
+        ],
       ),
     );
   }

@@ -134,10 +134,7 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
       padding: EdgeInsets.all(isLargeScreen ? 24 : 20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            statusColor.withOpacity(0.2),
-            statusColor.withOpacity(0.1),
-          ],
+          colors: [statusColor.withOpacity(0.2), statusColor.withOpacity(0.1)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -152,34 +149,34 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.2),
+              color: statusColor,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               _getStatusIcon(appointment.status),
-              color: statusColor,
-              size: 24,
+              color: Colors.white,
+              size: isLargeScreen ? 28 : 24,
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: isLargeScreen ? 20 : 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Status da Consulta',
+                  appointment.statusText,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 14,
+                    fontSize: isLargeScreen ? 24 : 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  appointment.statusText,
+                  'ID: ${appointment.id.substring(0, 8)}...',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: isLargeScreen ? 24 : 20,
-                    fontWeight: FontWeight.bold,
+                    fontSize: isLargeScreen ? 14 : 12,
+                    color: Colors.white.withOpacity(0.7),
                   ),
                 ),
               ],
@@ -188,6 +185,7 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
         ],
       ),
     ).animate().fadeIn(
+      delay: const Duration(milliseconds: 200),
       duration: const Duration(milliseconds: 500),
     ).slideY(
       begin: -0.1,
@@ -216,7 +214,7 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF6C63FF), Color(0xFF8E78FF)],
+                    colors: [Color(0xFF2196F3), Color(0xFF64B5F6)],
                   ),
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -238,43 +236,12 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
             ],
           ),
           SizedBox(height: isLargeScreen ? 20 : 16),
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 30,
-                backgroundColor: AppTheme.primaryColor.withOpacity(0.3),
-                child: const Icon(Icons.person, color: Colors.white, size: 30),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      appointment.clientName,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: isLargeScreen ? 18 : 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Cliente',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: isLargeScreen ? 16 : 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          _buildInfoRow('Nome', appointment.clientName, isLargeScreen),
+          _buildInfoRow('ID do Cliente', appointment.clientId, isLargeScreen),
         ],
       ),
     ).animate().fadeIn(
-      delay: const Duration(milliseconds: 200),
+      delay: const Duration(milliseconds: 300),
       duration: const Duration(milliseconds: 500),
     ).slideY(
       begin: 0.1,
@@ -306,7 +273,7 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
+                    colors: [Color(0xFF9C27B0), Color(0xFFBA68C8)],
                   ),
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -318,7 +285,7 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Dados da Consulta',
+                'Informações da Consulta',
                 style: TextStyle(
                   fontSize: isLargeScreen ? 20 : 18,
                   fontWeight: FontWeight.bold,
@@ -333,7 +300,7 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
           _buildInfoRow('Duração', '${appointment.duration} minutos', isLargeScreen),
           _buildInfoRow('Tipo', appointment.consultationType, isLargeScreen),
           if (appointment.createdAt != null)
-            _buildInfoRow('Agendado em', dateFormat.format(appointment.createdAt), isLargeScreen),
+            _buildInfoRow('Agendado em', dateFormat.format(appointment.createdAt!), isLargeScreen),
         ],
       ),
     ).animate().fadeIn(
@@ -390,13 +357,11 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
           SizedBox(height: isLargeScreen ? 20 : 16),
           _buildInfoRow('Valor', appointment.formattedAmount, isLargeScreen),
           _buildInfoRow('Método', appointment.paymentMethod ?? 'Créditos', isLargeScreen),
-          _buildInfoRow('Status', appointment.paymentStatus ?? 'Processado', isLargeScreen),
-          if (appointment.rating != null)
-            _buildInfoRow('Avaliação', '${appointment.rating!.toStringAsFixed(1)} ⭐', isLargeScreen),
+          _buildInfoRow('Status', _getPaymentStatusText(appointment.paymentStatus), isLargeScreen),
         ],
       ),
     ).animate().fadeIn(
-      delay: const Duration(milliseconds: 600),
+      delay: const Duration(milliseconds: 500),
       duration: const Duration(milliseconds: 500),
     ).slideY(
       begin: 0.1,
@@ -425,7 +390,7 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF2196F3), Color(0xFF03DAC6)],
+                    colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
                   ),
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -437,7 +402,7 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Descrição da Consulta',
+                'Descrição',
                 style: TextStyle(
                   fontSize: isLargeScreen ? 20 : 18,
                   fontWeight: FontWeight.bold,
@@ -446,31 +411,19 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
               ),
             ],
           ),
-          SizedBox(height: isLargeScreen ? 20 : 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.1),
-                width: 1,
-              ),
-            ),
-            child: Text(
-              appointment.description,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: isLargeScreen ? 16 : 14,
-                height: 1.5,
-              ),
+          SizedBox(height: isLargeScreen ? 16 : 12),
+          Text(
+            appointment.description,
+            style: TextStyle(
+              fontSize: isLargeScreen ? 16 : 14,
+              color: Colors.white.withOpacity(0.9),
+              height: 1.5,
             ),
           ),
         ],
       ),
     ).animate().fadeIn(
-      delay: const Duration(milliseconds: 800),
+      delay: const Duration(milliseconds: 600),
       duration: const Duration(milliseconds: 500),
     ).slideY(
       begin: 0.1,
@@ -483,87 +436,159 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
     return Column(
       children: [
         if (appointment.isPending) ...[
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => _confirmAppointment(appointment),
-              icon: const Icon(Icons.check_circle, color: Colors.white),
-              label: const Text(
-                'Aceitar Consulta',
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
+          _buildConfirmButton(appointment, isLargeScreen),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => _showRejectDialog(appointment),
-              icon: const Icon(Icons.cancel_outlined, color: Colors.red),
-              label: const Text(
-                'Recusar Consulta',
-                style: TextStyle(color: Colors.red, fontSize: 16),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.red),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-        ],
-        if (appointment.isConfirmed) ...[
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => _completeAppointment(appointment),
-              icon: const Icon(Icons.done_all, color: Colors.white),
-              label: const Text(
-                'Marcar como Concluída',
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
+          _buildRejectButton(appointment, isLargeScreen),
+        ] else if (appointment.isConfirmed) ...[
+          _buildCompleteButton(appointment, isLargeScreen),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => _showCancelDialog(appointment),
-              icon: const Icon(Icons.cancel_outlined, color: Colors.orange),
-              label: const Text(
-                'Cancelar Consulta',
-                style: TextStyle(color: Colors.orange, fontSize: 16),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.orange),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
+          _buildCancelButton(appointment, isLargeScreen),
+        ] else if (appointment.isCompleted && appointment.rating == null) ...[
+          _buildRatingSection(appointment, isLargeScreen),
         ],
       ],
     ).animate().fadeIn(
-      delay: const Duration(milliseconds: 1000),
+      delay: const Duration(milliseconds: 700),
       duration: const Duration(milliseconds: 500),
+    ).slideY(
+      begin: 0.1,
+      end: 0,
+      duration: const Duration(milliseconds: 400),
+    );
+  }
+
+  Widget _buildConfirmButton(AppointmentModel appointment, bool isLargeScreen) {
+    return SizedBox(
+      width: double.infinity,
+      height: isLargeScreen ? 56 : 48,
+      child: ElevatedButton.icon(
+        onPressed: () => _confirmAppointment(appointment),
+        icon: const Icon(Icons.check_circle, color: Colors.white),
+        label: Text(
+          'Confirmar Consulta',
+          style: TextStyle(
+            fontSize: isLargeScreen ? 16 : 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF4CAF50),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRejectButton(AppointmentModel appointment, bool isLargeScreen) {
+    return SizedBox(
+      width: double.infinity,
+      height: isLargeScreen ? 56 : 48,
+      child: OutlinedButton.icon(
+        onPressed: () => _showRejectDialog(appointment),
+        icon: const Icon(Icons.cancel, color: Colors.red),
+        label: Text(
+          'Recusar Consulta',
+          style: TextStyle(
+            fontSize: isLargeScreen ? 16 : 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.red,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: Colors.red),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompleteButton(AppointmentModel appointment, bool isLargeScreen) {
+    return SizedBox(
+      width: double.infinity,
+      height: isLargeScreen ? 56 : 48,
+      child: ElevatedButton.icon(
+        onPressed: () => _completeAppointment(appointment),
+        icon: const Icon(Icons.done_all, color: Colors.white),
+        label: Text(
+          'Finalizar Consulta',
+          style: TextStyle(
+            fontSize: isLargeScreen ? 16 : 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF2196F3),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCancelButton(AppointmentModel appointment, bool isLargeScreen) {
+    return SizedBox(
+      width: double.infinity,
+      height: isLargeScreen ? 56 : 48,
+      child: OutlinedButton.icon(
+        onPressed: () => _showCancelDialog(appointment),
+        icon: const Icon(Icons.close, color: Colors.orange),
+        label: Text(
+          'Cancelar Consulta',
+          style: TextStyle(
+            fontSize: isLargeScreen ? 16 : 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.orange,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: Colors.orange),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRatingSection(AppointmentModel appointment, bool isLargeScreen) {
+    return Container(
+      padding: EdgeInsets.all(isLargeScreen ? 24 : 20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Consulta Finalizada',
+            style: TextStyle(
+              fontSize: isLargeScreen ? 20 : 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Esta consulta foi concluída com sucesso.',
+            style: TextStyle(
+              fontSize: isLargeScreen ? 16 : 14,
+              color: Colors.white.withOpacity(0.7),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -578,8 +603,8 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
             child: Text(
               '$label:',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
                 fontSize: isLargeScreen ? 16 : 14,
+                color: Colors.white.withOpacity(0.7),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -588,9 +613,9 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
             child: Text(
               value,
               style: TextStyle(
-                color: Colors.white,
                 fontSize: isLargeScreen ? 16 : 14,
-                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -602,16 +627,16 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
   Color _getStatusColor(String status) {
     switch (status) {
       case 'pending':
-        return Colors.orange;
+        return const Color(0xFFFF9800);
       case 'confirmed':
-        return Colors.blue;
+        return const Color(0xFF2196F3);
       case 'completed':
-        return Colors.green;
+        return const Color(0xFF4CAF50);
       case 'cancelled':
       case 'canceled':
-        return Colors.red;
+        return const Color(0xFFF44336);
       default:
-        return Colors.grey;
+        return const Color(0xFF9E9E9E);
     }
   }
 
@@ -620,28 +645,118 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
       case 'pending':
         return Icons.schedule;
       case 'confirmed':
-        return Icons.check_circle_outline;
+        return Icons.event_available;
       case 'completed':
         return Icons.check_circle;
       case 'cancelled':
       case 'canceled':
         return Icons.cancel;
       default:
-        return Icons.help_outline;
+        return Icons.help;
+    }
+  }
+
+  String _getPaymentStatusText(String? paymentStatus) {
+    if (paymentStatus == null) return 'Pendente';
+
+    switch (paymentStatus) {
+      case 'pending':
+        return 'Pendente';
+      case 'paid':
+        return 'Pago';
+      case 'failed':
+        return 'Falhou';
+      case 'refunded':
+        return 'Reembolsado';
+      default:
+        return 'Pendente';
     }
   }
 
   void _confirmAppointment(AppointmentModel appointment) async {
-    final success = await _controller.confirmAppointment(appointment.id);
-    if (success && appointmentId != null) {
-      await _controller.loadAppointmentDetails(appointmentId!);
+    final confirmed = await Get.dialog<bool>(
+      AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text(
+          'Confirmar Consulta',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          'Confirmar a consulta com ${appointment.clientName}?',
+          style: TextStyle(color: Colors.white.withOpacity(0.8)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: Colors.white.withOpacity(0.7)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Get.back(result: true);
+              Get.back();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4CAF50),
+            ),
+            child: const Text(
+              'Confirmar',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final success = await _controller.confirmAppointment(appointment.id);
+      if (success && appointmentId != null) {
+        await _controller.loadAppointmentDetails(appointmentId!);
+      }
     }
   }
 
   void _completeAppointment(AppointmentModel appointment) async {
-    final success = await _controller.completeAppointment(appointment.id);
-    if (success && appointmentId != null) {
-      await _controller.loadAppointmentDetails(appointmentId!);
+    final confirmed = await Get.dialog<bool>(
+      AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text(
+          'Finalizar Consulta',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          'Finalizar a consulta com ${appointment.clientName}?',
+          style: TextStyle(color: Colors.white.withOpacity(0.8)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: Colors.white.withOpacity(0.7)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Get.back(result: true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2196F3),
+            ),
+            child: const Text(
+              'Finalizar',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final success = await _controller.completeAppointment(appointment.id);
+      if (success && appointmentId != null) {
+        await _controller.loadAppointmentDetails(appointmentId!);
+      }
     }
   }
 
@@ -658,141 +773,139 @@ class _AppointmentDetailsScreenState extends State<AppointmentDetailsScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-        Text(
-        'Tem certeza que deseja recusar a consulta com ${appointment.clientName}?',
-          style: TextStyle(color: Colors.white.withOpacity(0.7)),
+            Text(
+              'Tem certeza que deseja recusar a consulta com ${appointment.clientName}?',
+              style: TextStyle(color: Colors.white.withOpacity(0.8)),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Motivo (opcional)',
+                labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: AppTheme.primaryColor),
+                ),
+              ),
+              maxLines: 3,
+            ),
+          ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text(
+              'Voltar',
+              style: TextStyle(color: Colors.white.withOpacity(0.7)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final success = await _controller.cancelAppointment(
+                appointment.id,
+                reasonController.text.trim().isEmpty
+                    ? 'Recusado pelo médium'
+                    : reasonController.text.trim(),
+              );
+              if (success && appointmentId != null) {
+                await _controller.loadAppointmentDetails(appointmentId!);
+              }
+              Get.back();
+              Get.back();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text(
+              'Recusar',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
       ),
-      ElevatedButton(
-        onPressed: () async {
-          Get.back();
-          final success = await _controller.cancelAppointment(
-            appointment.id,
-            reason: reasonController.text.trim().isNotEmpty
-                ? reasonController.text.trim()
-                : 'Cancelado pelo médium',
-          );
-          if (success && appointmentId != null) {
-            await _controller.loadAppointmentDetails(appointmentId!);
-          }
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.orange,
-        ),
-        child: const Text(
+    );
+  }
+
+  void _showCancelDialog(AppointmentModel appointment) {
+    final reasonController = TextEditingController();
+
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text(
           'Cancelar Consulta',
           style: TextStyle(color: Colors.white),
         ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Tem certeza que deseja cancelar a consulta com ${appointment.clientName}?',
+              style: TextStyle(color: Colors.white.withOpacity(0.8)),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Motivo (opcional)',
+                labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: AppTheme.primaryColor),
+                ),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text(
+              'Voltar',
+              style: TextStyle(color: Colors.white.withOpacity(0.7)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Get.back();
+              final success = await _controller.cancelAppointment(
+                appointment.id,
+                reasonController.text.trim().isEmpty
+                    ? 'Cancelado pelo médium'
+                    : reasonController.text.trim(),
+              );
+              if (success && appointmentId != null) {
+                await _controller.loadAppointmentDetails(appointmentId!);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+            ),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
       ),
-      ],
-    ),
     );
   }
-}withOpacity(0.8)),
-),
-const SizedBox(height: 16),
-TextField(
-controller: reasonController,
-style: const TextStyle(color: Colors.white),
-decoration: InputDecoration(
-labelText: 'Motivo (obrigatório)',
-labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-border: OutlineInputBorder(
-borderRadius: BorderRadius.circular(8),
-),
-enabledBorder: OutlineInputBorder(
-borderRadius: BorderRadius.circular(8),
-borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-),
-focusedBorder: OutlineInputBorder(
-borderRadius: BorderRadius.circular(8),
-borderSide: const BorderSide(color: AppTheme.primaryColor),
-),
-),
-maxLines: 3,
-),
-],
-),
-actions: [
-TextButton(
-onPressed: () => Get.back(),
-child: Text(
-'Voltar',
-style: TextStyle(color: Colors.white.withOpacity(0.7)),
-),
-),
-ElevatedButton(
-onPressed: () async {
-if (reasonController.text.trim().isEmpty) {
-Get.snackbar('Erro', 'Por favor, informe o motivo da recusa');
-return;
 }
-
-Get.back();
-final success = await _controller.cancelAppointment(
-appointment.id,
-reason: reasonController.text.trim(),
-);
-if (success && appointmentId != null) {
-await _controller.loadAppointmentDetails(appointmentId!);
-}
-},
-style: ElevatedButton.styleFrom(
-backgroundColor: Colors.red,
-),
-child: const Text(
-'Recusar',
-style: TextStyle(color: Colors.white),
-),
-),
-],
-),
-);
-}
-
-void _showCancelDialog(AppointmentModel appointment) {
-final reasonController = TextEditingController();
-
-Get.dialog(
-AlertDialog(
-backgroundColor: const Color(0xFF1A1A2E),
-title: const Text(
-'Cancelar Consulta',
-style: TextStyle(color: Colors.white),
-),
-content: Column(
-mainAxisSize: MainAxisSize.min,
-children: [
-Text(
-'Tem certeza que deseja cancelar a consulta com ${appointment.clientName}?',
-style: TextStyle(color: Colors.white.withOpacity(0.8)),
-),
-const SizedBox(height: 16),
-TextField(
-controller: reasonController,
-style: const TextStyle(color: Colors.white),
-decoration: InputDecoration(
-labelText: 'Motivo (opcional)',
-labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-border: OutlineInputBorder(
-borderRadius: BorderRadius.circular(8),
-),
-enabledBorder: OutlineInputBorder(
-borderRadius: BorderRadius.circular(8),
-borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-),
-focusedBorder: OutlineInputBorder(
-borderRadius: BorderRadius.circular(8),
-borderSide: const BorderSide(color: AppTheme.primaryColor),
-),
-),
-maxLines: 3,
-),
-],
-),
-actions: [
-TextButton(
-onPressed: () => Get.back(),
-child: Text(
-'Voltar',
-style: TextStyle(color: Colors.white.

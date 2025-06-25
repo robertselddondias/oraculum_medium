@@ -863,7 +863,6 @@ class DashboardScreen extends StatelessWidget {
                 isMediumView: true,
                 appointment: appointment,
                 showActions: false,
-                isUpcoming: true,
               ).animate().fadeIn(
                 delay: Duration(milliseconds: 1800 + (index * 100)),
                 duration: const Duration(milliseconds: 500),
