@@ -127,15 +127,18 @@ class DashboardScreen extends StatelessWidget {
           onTap: () => Get.toNamed(AppRoutes.profile),
           child: Obx(() {
             final user = authController.currentUser.value;
+
+            final currentMedium = authController.currentMedium.value;
+
             return Container(
               width: isLargeScreen ? 56 : 48,
               height: isLargeScreen ? 56 : 48,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white24, width: 2),
-                image: user?.photoURL != null
+                image: currentMedium?.imageUrl != null
                     ? DecorationImage(
-                  image: NetworkImage(user!.photoURL!),
+                  image: NetworkImage(currentMedium!.imageUrl!),
                   fit: BoxFit.cover,
                 )
                     : const DecorationImage(

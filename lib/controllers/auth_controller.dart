@@ -33,6 +33,7 @@ class AuthController extends GetxController {
 
       try {
         final medium = await _mediumService.getMediumProfile(user.uid);
+        currentMedium.value = medium;
         if (medium != null && medium.isActive) {
           currentMedium.value = medium;
           isLoggedIn.value = true;
